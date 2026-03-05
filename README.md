@@ -697,3 +697,59 @@ seismic-platform/
     │   └── 45050002-20260203-172809.seis
     └── ...（共 2000 个节点目录）
 ```
+
+
+---
+## 完整数据流拓扑
+```text
+                                  seismic-raw (RocketMQ)
+                                         │
+                                    ┌────┴────┐
+                                    │  Source  │ (并行度=2)
+                                    └────┬────┘
+                                         │ SeismicRecord
+                                    ┌────┴────┐
+                                    │Watermark │
+                                    └────┬────┘
+                                         │
+                                  keyBy(nodeid)
+                                         │
+                                    ┌────┴────┐
+                                    │Hardware  │ (并行度=4)
+                                    │ Filter   │
+                                    └──┬───┬──┘
+                          正常数据 ←──┘   └──→ SideOutput(异常数据)
+                                    │
+                             keyBy(nodeid)
+                                    │
+                                ┌───┴───┐
+                                │Signal │ (并行度=4)
+                                │Extract│
+                                └───┬───┘
+                                    │ SeismicEvent
+                             keyBy(nodeid)
+                                    │
+                              ┌─────┴─────┐
+                              │ Feature   │ (并行度=4, L2 缓存)
+                              │ Extraction│
+                              └─────┬─────┘
+                                    │ EventFeature
+                         ┌──────────┼──────────┐
+                         │                     │
+                  keyBy(gridId)                │
+                         │                     │
+                   ┌─────┴─────┐        ┌──────┴──────┐
+                   │   Grid    │        │ EventFeature │ (并行度=2)
+                   │Aggregation│        │    Sink      │
+                   │ (L3 缓存) │        └──────┬──────┘
+                   └─────┬─────┘               │
+                         │ GridSummary    seismic-node-events
+                   ┌─────┴─────┐          (RocketMQ)
+                   │GridSummary│ (并行度=2)
+                   │   Sink    │
+                   └─────┬─────┘
+                         │
+                  seismic-grid-summary
+                     (RocketMQ)
+
+```
