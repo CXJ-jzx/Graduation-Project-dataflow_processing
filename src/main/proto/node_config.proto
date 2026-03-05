@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package seismic;
+
+option java_package = "org.jzx.proto";
+option java_outer_classname = "NodeConfigProto";
+
+// 单个节点的坐标与网格信息
+message NodeInfo {
+  int32  nodeid   = 1;
+  int32  fixed_x  = 2;
+  int32  fixed_y  = 3;
+  string grid_id  = 4;
+}
+
+// 全量节点映射（序列化为 config/node_mapping.pb）
+message NodeMapping {
+  repeated NodeInfo nodes = 1;  // 2000 个节点信息
+}
+
+// 单个网格的包含节点列表
+message GridInfo {
+  string grid_id          = 1;
+  repeated int32 node_ids = 2;  // 该网格包含的 nodeid 列表
+  int32  total_node_count = 3;
+}
+
+// 全量网格映射（序列化为 config/grid_mapping.pb）
+message GridMappingList {
+  repeated GridInfo grids = 1;  // 100 个网格信息
+}

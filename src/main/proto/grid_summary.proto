@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package seismic;
+
+option java_package = "org.jzx.proto";
+option java_outer_classname = "GridSummaryProto";
+
+message GridSummary {
+  string grid_id               = 1;  // 网格ID，如 "3_7"
+  int32  active_node_count     = 2;  // 当前窗口内触发事件的节点数
+  int32  total_node_count      = 3;  // 该网格总节点数（固定约 20）
+  double avg_peak_amplitude    = 4;  // 网格内节点平均峰值振幅
+  double trigger_rate          = 5;  // 触发率 = active / total
+  int64  last_update_timestamp = 6;  // 最近一次更新的时间戳（秒）
+}

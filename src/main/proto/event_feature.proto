@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package seismic;
+
+option java_package = "org.jzx.proto";
+option java_outer_classname = "EventFeatureProto";
+
+message EventFeature {
+  int32  nodeid             = 1;   // 节点ID
+  int32  fixed_x            = 2;   // X 坐标
+  int32  fixed_y            = 3;   // Y 坐标
+  string grid_id            = 4;   // 网格ID
+  int64  timestamp          = 5;   // 秒级时间戳
+  int32  peak_amplitude     = 6;   // 峰值振幅
+  double rms_energy         = 7;   // RMS 能量
+  int32  signal_length      = 8;   // 信号持续采样点数
+  bool   is_anomaly         = 9;   // 是否异常（与历史均值偏差 > 50%）
+  int32  recent_event_count = 10;  // 近 60 秒内触发次数
+  double avg_peak_amplitude = 11;  // L2 缓存中的历史平均振幅
+}

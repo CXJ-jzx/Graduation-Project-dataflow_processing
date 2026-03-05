@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package seismic;
+
+option java_package = "org.jzx.proto";
+option java_outer_classname = "SeismicRecordProto";
+
+// 对应一个 3048 字节数据块（1秒 / 1000个采样点）
+message SeismicRecord {
+  int32  nodeid      = 1;   // 节点ID
+  int32  fixed_x     = 2;   // 硬编码 X 坐标（已替换原始随机值）
+  int32  fixed_y     = 3;   // 硬编码 Y 坐标
+  string grid_id     = 4;   // 所属网格ID，如 "3_7"
+  int64  timestamp   = 5;   // 秒级时间戳
+  int32  bat_voltage = 6;   // 电池电压
+  int32  bat_temp    = 7;   // 电池温度
+  repeated int32 samples = 8; // 1000个采样点（24位有符号整型）
+}

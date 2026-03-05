@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package seismic;
+
+option java_package = "org.jzx.proto";
+option java_outer_classname = "SeismicEventProto";
+
+message SeismicEvent {
+  int32  nodeid           = 1;   // 节点ID
+  int32  fixed_x          = 2;   // X 坐标
+  int32  fixed_y          = 3;   // Y 坐标
+  string grid_id          = 4;   // 网格ID
+  int64  timestamp        = 5;   // 秒级时间戳
+  int32  signal_start_idx = 6;   // 信号起始位置（0–999）
+  int32  signal_end_idx   = 7;   // 信号结束位置
+  int32  signal_length    = 8;   // 信号持续采样点数
+  int32  peak_amplitude   = 9;   // 峰值振幅
+  double rms_energy       = 10;  // RMS 能量
+  repeated int32 signal_samples = 11; // 信号段原始采样点（可选保留）
+}
