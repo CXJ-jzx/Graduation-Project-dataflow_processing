@@ -20,6 +20,7 @@ import org.jzx.proto.SeismicRecordProto.SeismicRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 import java.time.Duration;
 
 /**
@@ -41,7 +42,17 @@ public class SeismicStreamJob {
         // ============================
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(4);
-        ProtobufSerializerRegistrar.registerAll(env);
+        // SeismicStreamJob.java 中添加：
+
+
+        // ============================
+        // Checkpoint 配置
+        // ============================
+        env.enableCheckpointing(30000);  // 30秒间隔，默认就是 EXACTLY_ONCE
+        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(10000);
+        env.getCheckpointConfig().setCheckpointTimeout(60000);
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
+
 
         // ============================
         // 2. RocketMQ Source
