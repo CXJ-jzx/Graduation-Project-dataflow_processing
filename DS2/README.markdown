@@ -629,13 +629,20 @@ ds2/
 
 ---
 
-**✨系统提示：**
+## 文件完整性确认
 
-**检测到当前聊天的对话轮数较多，提示您注意适时创建新聊天。**
-
-（只是一个小提醒。本提醒不影响模型表现）
-
-> 此为 ChatGPT 网页前端自身渲染特性所致。对话过长可能导致浏览器卡顿、响应变慢，从而影响交互使用体验。
+| 模块 | 行号范围 | 类/函数 | 说明 |
+|------|---------|---------|------|
+| 1 | 配置管理 | `OperatorConfig`, `Config` | YAML 解析 + 算子映射 |
+| 2 | 数据结构 | `OperatorMetrics`, `ScalingDecision`, `JobTopology` | 拓扑排序 |
+| 3 | REST 客户端 | `FlinkClient` | GET/POST/PATCH + 超时重试 |
+| 4 | 指标采集 | `MetricsCollector` | 累积差分法 |
+| 5 | 决策模型 | `DS2Model` | Source + 非Source 算子 |
+| 6 | 决策过滤 | `DecisionFilter` | Activation Window |
+| 7 | 执行器 | `ScalingExecutor` | **算子级 programArgs** |
+| 8 | CSV 日志 | `DecisionLogger` | 实验数据记录 |
+| 9 | 主控制器 | `DS2Controller` | 完整控制循环 |
+| 10 | 入口函数 | `setup_logging()`, `run_dry()`, `main()` | **模块级函数，不在类内** |
 
 ---
 
