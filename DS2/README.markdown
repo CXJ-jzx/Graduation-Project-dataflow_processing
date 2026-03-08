@@ -626,6 +626,7 @@ python ds2_controller.py -c /path/to/ds2_config.yaml --dry-run -v
 ds2/
 ├── ds2_controller.py       # DS2 控制器主程序（Python）
 └── ds2_config.yaml         # 配置文件
+```
 
 ---
 
