@@ -1,0 +1,53 @@
+# =========================
+# DS2 Configuration File
+# =========================
+
+flink:
+  # JobManager REST API 地址
+  # 用 JobManager 所在节点 IP
+  rest_url: "http://192.168.56.151:8081"
+
+  # Flink 作业名称（必须与 env.execute("xxx") 完全一致）
+  job_name: "Seismic-Cache-Optimized-Job"
+
+  # Savepoint 目录（使用 HDFS，推荐方案）
+  # node01 是 NameNode，9000 是 RPC 端口
+  savepoint_dir: "hdfs://node01:9000/flink/savepoints"
+  # savepoint_dir: "file:///tmp/flink-savepoints"
+
+
+# =========================
+# DS2 Core Parameters
+# =========================
+ds2:
+  # 决策周期（秒）
+  policy_interval: 15
+
+  # 扩缩容后的冷却/预热时间
+  warm_up_time: 30
+
+  # 连续 N 次决策一致才执行
+  activation_window: 3
+
+  # 目标处理能力冗余比例
+  target_rate_ratio: 1.2
+
+  # 最小忙碌比（防止除 0）
+  min_busy_ratio: 0.05
+
+  # 并行度上下界
+  max_parallelism: 16
+  min_parallelism: 1
+
+  # 并行度变化阈值（避免频繁 +1/-1）
+  change_threshold: 0
+
+  #重启作业所需jar包名称
+  target_jar_name: "flink-rocketmq-demo-1.0-SNAPSHOT"
+
+
+# =========================
+# Logging
+# =========================
+logging:
+  level: "INFO"
