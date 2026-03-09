@@ -754,6 +754,55 @@ seismic-platform/
 
 ```
 
+---
+# 网址
+```text
+
+HDFS:
+http://192.168.56.151:9870/dfshealth.html#tab-overview
+
+Fink:
+http://192.168.56.151:8081/#/overview
+
+Rocketmq:
+http://192.168.56.1:8080/#/topic
+```
+---
+# 启动程序
+```text
+cd /opt/app/flink-1.17.2
+
+/opt/app/flink-1.17.2/bin/stop-cluster.sh
+/opt/app/flink-1.17.2/bin/start-cluster.sh
+```
+
+```text
+格式化hdfs （node01）：
+hdfs namenode -format
+
+启动hdfs：
+stop-dfs.sh
+start-dfs.sh
+
+1️⃣ HDFS 创建 savepoint
+hdfs dfs -mkdir -p /flink/savepoints
+
+2️⃣ 给 Flink/DS2 写权限
+hdfs dfs -chmod 777 /flink/savepoints
+
+验证：
+hdfs dfs -ls /flink
+```
+
+
+```text
+【启动nameserver，带.conf】
+nohup  /usr/local/rocketmq/bin/mqnamesrv &
+
+【带.conf启动broker】
+nohup sh /usr/local/rocketmq/bin/mqbroker -c /usr/local/rocketmq/conf/dledger/broker.conf &
+```
+
 
 
 
