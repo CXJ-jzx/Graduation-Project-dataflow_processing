@@ -804,9 +804,27 @@ nohup sh /usr/local/rocketmq/bin/mqbroker -c /usr/local/rocketmq/conf/dledger/br
 ```
 
 
+---
+# flink集群相关指令
+```text
+【上传 JAR 到 Flink】
+# 在 node01 上执行
+curl -X POST http://localhost:8081/jars/upload \
+  -F "jarfile=@/opt/flink_jobs/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
 
+【查看 JAR ID】
+# 在 node01 上执行
+curl -s http://localhost:8081/jars
 
-
+【提交作业】
+【curl -X POST http://localhost:8081/jars/JOB_ID/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parallelism": 2,
+    "programArgs": "--p-source 1 --p-filter 2 --p-signal 2 --p-feature 2 --p-grid 2 --p-sink 1"
+  }'
+】
+```
 ---
 # ☠问题：
 
