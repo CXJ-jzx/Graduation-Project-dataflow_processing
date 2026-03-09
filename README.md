@@ -642,6 +642,30 @@ Flink 作业订阅 RocketMQ，将 Protobuf 消息反序列化为 `SeismicRecord`
 - [ ] 确认 `seismic-grid-summary` Topic 可消费到 `GridSummary` 消息
 - [ ] 确认消息体可被对应 Protobuf 类正确反序列化
 
+
+#### 修改提高--> 异步发送
+
+Flink线程调用 invoke():
+  ┌────────┐
+  │ invoke │ → 序列化 → 加入 batchBuffer → 返回（<0.01ms）
+  └────────┘
+                    │
+            缓冲区满(32条) 或 超时(500ms)?
+                    │
+                    ▼  是
+            ┌─────────────┐
+            │  flushBatch  │
+            └──────┬──────┘
+                   │
+     ┌─────────────┼─────────────┐
+     ▼             ▼             ▼
+  acquire()    acquire()     acquire()     ← Semaphore 背压
+     │             │             │
+  sendAsync    sendAsync     sendAsync     ← 异步发送，不阻塞
+     │             │             │
+  callback:    callback:    callback:
+  release()    release()    release()      ← ACK后释放信号量
+
 ---
 
 ## 四、缓存层设计汇总
