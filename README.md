@@ -793,11 +793,12 @@ L2_MAX_CAPACITY = 200（当前代码中的值）
 ```text
 实现完整性层面（需补充）
 
-L1 缓存未实现
-
-Checkpoint 未启用
-
 异常侧输出流未接 Sink
 
 HardwareFilterFunction 父类规范问题
+```
+
+
+```text
+sink算子有待优化，会产生背压
 ```
