@@ -1,6 +1,38 @@
 # DS2 弹性调度算法设计与实现文档
 
 ---
+## 架构总览
+```text
+
+宿主机 (Windows/Mac)                    3台虚拟机 (Flink Standalone + RocketMQ)
+┌──────────────────────┐               ┌─────────────────────────────┐
+│  ds2_controller.py   │  REST API     │  node01 (192.168.56.151)    │
+│                      │◄────────────► │    JobManager :8081         │
+│  ┌────────────────┐  │               │    TaskManager              │
+│  │ MetricsCollector│  │               │    RocketMQ NameServer      │
+│  │ (累积差分法)    │  │               ├─────────────────────────────┤
+│  ├────────────────┤  │               │  node02                     │
+│  │ DS2Model       │  │               │    TaskManager              │
+│  │ (拓扑遍历推导)  │  │               │    RocketMQ Broker          │
+│  ├────────────────┤  │               ├─────────────────────────────┤
+│  │ DecisionFilter │  │               │  node03                     │
+│  │ (激活窗口过滤)  │  │               │    TaskManager              │
+│  ├────────────────┤  │               │    RocketMQ Broker          │
+│  │ ScalingExecutor│  │               └─────────────────────────────┘
+│  │ (Savepoint→    │  │
+│  │  Cancel→Resubmit) │
+│  ├────────────────┤  │
+│  │ DecisionLogger │  │
+│  │ (CSV持久化)    │  │
+│  └────────────────┘  │
+│                      │
+│  ds2_config.yaml     │
+│  ds2_logs/           │
+└──────────────────────┘
+
+```
+
+---
 
 ## 1. 设计背景与核心目标
 
