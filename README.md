@@ -545,12 +545,25 @@ Flink 作业订阅 RocketMQ，将 Protobuf 消息反序列化为 `SeismicRecord`
 | recent_event_count | L2 缓存读取 | 近 60 秒触发次数 |
 | avg_peak_amplitude | L2 缓存读取 | 历史平均振幅 |
 
+
 #### 验证检查
 
 - [ ] 确认异常标注逻辑正确（偏差 > 50% 才标记）
 - [ ] 确认冷启动（L2 缺失）时不输出 `is_anomaly = true`
 - [ ] 确认 L2 缓存不超过 1500 条（LRU 淘汰生效）
 - [ ] 确认时间窗口清理正常（超过 60 秒的事件被移除）
+
+
+
+#### ⚠sink修改
+
+改造前：每条 SeismicEvent → 更新L2 → 输出1条EventFeature → Sink发送
+         2000条/秒输入 → 2000条/秒输出 → Sink 2000次/秒 RocketMQ写入
+
+改造后：每条 SeismicEvent → 更新L2 → 不输出
+         Timer每5秒触发 → 从L2读取聚合统计 → 输出1条EventFeature → Sink发送
+         2000条/秒输入 → 400条/5秒输出 → Sink 400次/5秒 RocketMQ写入
+
 
 ---
 
