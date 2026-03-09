@@ -817,13 +817,12 @@ curl -X POST http://localhost:8081/jars/upload \
 curl -s http://localhost:8081/jars
 
 【提交作业】
-【curl -X POST http://localhost:8081/jars/JOB_ID/run \
+curl -X POST http://localhost:8081/jars/JOB_ID/run \
   -H "Content-Type: application/json" \
   -d '{
     "parallelism": 2,
     "programArgs": "--p-source 1 --p-filter 2 --p-signal 2 --p-feature 2 --p-grid 2 --p-sink 1"
   }'
-】
 ```
 ---
 # ☠问题：
