@@ -40,3 +40,10 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+
+.idea/
+__pycache__/
+*.log
+*.pyc
+ds2_logs/
