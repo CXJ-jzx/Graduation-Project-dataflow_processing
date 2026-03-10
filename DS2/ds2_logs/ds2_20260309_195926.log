@@ -1,0 +1,625 @@
+2026-03-09 19:59:26 [DS2.Main       ] INFO  DS2 Configuration:
+2026-03-09 19:59:26 [DS2.Main       ] INFO    flink_rest_url    = http://192.168.56.151:8081
+2026-03-09 19:59:26 [DS2.Main       ] INFO    flink_job_name    = Seismic-Stream-Job
+2026-03-09 19:59:26 [DS2.Main       ] INFO    policy_interval   = 15s
+2026-03-09 19:59:26 [DS2.Main       ] INFO    warm_up_time      = 60s
+2026-03-09 19:59:26 [DS2.Main       ] INFO    activation_window = 3
+2026-03-09 19:59:26 [DS2.Main       ] INFO    target_rate_ratio = 1.8
+2026-03-09 19:59:26 [DS2.Main       ] INFO    parallelism range = [1, 8]
+2026-03-09 19:59:26 [DS2.Main       ] INFO    target_jar_name   = flink-rocketmq-demo-1.0-SNAPSHOT
+2026-03-09 19:59:26 [DS2.Main       ] INFO    operator_mapping  = 7 operators:
+2026-03-09 19:59:26 [DS2.Main       ] INFO      source       keyword='RocketMQ-Source'  arg='p-source'  default_p=1
+2026-03-09 19:59:26 [DS2.Main       ] INFO      filter       keyword='Hardware-Filter'  arg='p-filter'  default_p=2
+2026-03-09 19:59:26 [DS2.Main       ] INFO      signal       keyword='Signal-Extraction'  arg='p-signal'  default_p=2
+2026-03-09 19:59:26 [DS2.Main       ] INFO      feature      keyword='Feature-Extraction'  arg='p-feature'  default_p=2
+2026-03-09 19:59:26 [DS2.Main       ] INFO      grid         keyword='Grid-Aggregation'  arg='p-grid'  default_p=2
+2026-03-09 19:59:26 [DS2.Main       ] INFO      sink_event   keyword='EventFeature-Sink'  arg='p-sink'  default_p=1
+2026-03-09 19:59:26 [DS2.Main       ] INFO      sink_grid    keyword='GridSummary-Sink'  arg='p-sink'  default_p=4
+2026-03-09 19:59:26 [DS2.Main       ] INFO  MODE: live
+2026-03-09 19:59:26 [DS2.CsvLogger  ] INFO  CSV log: ds2_logs\ds2_decisions_20260309_195926.csv
+2026-03-09 19:59:26 [DS2.Controller ] INFO  ============================================================
+2026-03-09 19:59:26 [DS2.Controller ] INFO  DS2 Controller Starting
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Flink REST  : http://192.168.56.151:8081
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Job Name    : Seismic-Stream-Job
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Interval    : 15s
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Warm-up     : 60s
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Act. Window : 3
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Rate Ratio  : 1.8
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Parallelism : [1, 8]
+2026-03-09 19:59:26 [DS2.Controller ] INFO  ============================================================
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG Starting new HTTP connection (1): 192.168.56.151:8081
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /overview HTTP/11" 200 176
+2026-03-09 19:59:26 [DS2.FlinkClient] INFO  Connected to Flink 1.17.2
+2026-03-09 19:59:26 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 19:59:26 [DS2.Controller ] INFO  # Round 1
+2026-03-09 19:59:26 [DS2.Controller ] INFO  ############################################################
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 2809
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6 HTTP/11" 200 6869
+2026-03-09 19:59:26 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (63c4c9f5aafa8f87530815921c74edb6)
+2026-03-09 19:59:26 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Hardware-Filter (P=2, arg=p-filter)
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Feature-Extraction (P=2, arg=p-feature)
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Grid-Aggregation (P=2, arg=p-grid)
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=3, arg=p-sink)
+2026-03-09 19:59:26 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=3, arg=p-sink)
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 2
+2026-03-09 19:59:26 [DS2.Metrics    ] DEBUG No raw metrics for Source: RocketMQ-Source -> Watermark-Assigner
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 2
+2026-03-09 19:59:26 [DS2.Metrics    ] DEBUG No raw metrics for Hardware-Filter
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 2
+2026-03-09 19:59:26 [DS2.Metrics    ] DEBUG No raw metrics for Signal-Extraction
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 2
+2026-03-09 19:59:26 [DS2.Metrics    ] DEBUG No raw metrics for Feature-Extraction
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 2
+2026-03-09 19:59:26 [DS2.Metrics    ] DEBUG No raw metrics for Grid-Aggregation
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 2
+2026-03-09 19:59:26 [DS2.Metrics    ] DEBUG No raw metrics for Sink: GridSummary-Sink
+2026-03-09 19:59:26 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 204
+2026-03-09 19:59:26 [DS2.Metrics    ] INFO  Metrics collected: 0/7 vertices valid
+2026-03-09 19:59:26 [DS2.Controller ] INFO  Need at least 2 samples for diff, skip
+2026-03-09 19:59:41 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 19:59:41 [DS2.Controller ] INFO  # Round 2
+2026-03-09 19:59:41 [DS2.Controller ] INFO  ############################################################
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 2810
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6 HTTP/11" 200 7000
+2026-03-09 19:59:41 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (63c4c9f5aafa8f87530815921c74edb6)
+2026-03-09 19:59:41 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 19:59:41 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 19:59:41 [DS2.Controller ] INFO    Hardware-Filter (P=2, arg=p-filter)
+2026-03-09 19:59:41 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 19:59:41 [DS2.Controller ] INFO    Feature-Extraction (P=2, arg=p-feature)
+2026-03-09 19:59:41 [DS2.Controller ] INFO    Grid-Aggregation (P=2, arg=p-grid)
+2026-03-09 19:59:41 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=3, arg=p-sink)
+2026-03-09 19:59:41 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=3, arg=p-sink)
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 220
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 241
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 239
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 235
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 228
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 221
+2026-03-09 19:59:41 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 230
+2026-03-09 19:59:41 [DS2.Metrics    ] DEBUG   Sink: EventFeature-Sink   in=  1354.1/s out=     0.0/s busy=0.027 true= 27081.0/s sel=0.000
+2026-03-09 19:59:41 [DS2.Metrics    ] INFO  Metrics collected: 1/7 vertices valid
+2026-03-09 19:59:41 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:59:41 [DS2.Model      ] INFO  DS2 Model Computing ...
+2026-03-09 19:59:41 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+--- Source: RocketMQ-Source -> Watermark-Assigner (P=1) ---
+2026-03-09 19:59:41 [DS2.Model      ] INFO    -> keep P=1 (no metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+--- Hardware-Filter (P=2) ---
+2026-03-09 19:59:41 [DS2.Model      ] INFO    -> keep P=2 (no metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+--- Signal-Extraction (P=2) ---
+2026-03-09 19:59:41 [DS2.Model      ] INFO    -> keep P=2 (no metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+--- Feature-Extraction (P=2) ---
+2026-03-09 19:59:41 [DS2.Model      ] INFO    -> keep P=2 (no metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+--- Grid-Aggregation (P=2) ---
+2026-03-09 19:59:41 [DS2.Model      ] INFO    -> keep P=2 (no metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+--- Sink: EventFeature-Sink (P=3) ---
+2026-03-09 19:59:41 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 19:59:41 [DS2.Model      ] INFO    busy=0.027 < 0.1 -> No upstream data, set min_p=1  P: 3 -> 1  target_out=0.0/s
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+--- Sink: GridSummary-Sink (P=3) ---
+2026-03-09 19:59:41 [DS2.Model      ] INFO    -> keep P=3 (no metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO  
+============================================================
+2026-03-09 19:59:41 [DS2.Model      ] INFO  Decision Summary:
+2026-03-09 19:59:41 [DS2.Model      ] INFO  ------------------------------------------------------------
+2026-03-09 19:59:41 [DS2.Model      ] INFO    Source: RocketMQ-Source -> Watermark-Assigner 1 -> 1  NO_CHANGE  (No valid metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO    Hardware-Filter                               2 -> 2  NO_CHANGE  (No valid metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO    Signal-Extraction                             2 -> 2  NO_CHANGE  (No valid metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO    Feature-Extraction                            2 -> 2  NO_CHANGE  (No valid metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO    Grid-Aggregation                              2 -> 2  NO_CHANGE  (No valid metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO    Sink: EventFeature-Sink                       3 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 19:59:41 [DS2.Model      ] INFO    Sink: GridSummary-Sink                        3 -> 3  NO_CHANGE  (No valid metrics)
+2026-03-09 19:59:41 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:59:41 [DS2.Filter     ] DEBUG   Sink: EventFeature-Sink: activation window 1/3, wait
+2026-03-09 19:59:41 [DS2.Filter     ] INFO    No decisions approved this round
+2026-03-09 19:59:41 [DS2.Controller ] INFO  No approved changes
+2026-03-09 19:59:56 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 19:59:56 [DS2.Controller ] INFO  # Round 3
+2026-03-09 19:59:56 [DS2.Controller ] INFO  ############################################################
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 2810
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6 HTTP/11" 200 7010
+2026-03-09 19:59:56 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (63c4c9f5aafa8f87530815921c74edb6)
+2026-03-09 19:59:56 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 19:59:56 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 19:59:56 [DS2.Controller ] INFO    Hardware-Filter (P=2, arg=p-filter)
+2026-03-09 19:59:56 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 19:59:56 [DS2.Controller ] INFO    Feature-Extraction (P=2, arg=p-feature)
+2026-03-09 19:59:56 [DS2.Controller ] INFO    Grid-Aggregation (P=2, arg=p-grid)
+2026-03-09 19:59:56 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=3, arg=p-sink)
+2026-03-09 19:59:56 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=3, arg=p-sink)
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 220
+2026-03-09 19:59:56 [DS2.Metrics    ] DEBUG   Source: RocketMQ-Source -> Watermark-Assigner in=     0.0/s out=  2112.4/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 244
+2026-03-09 19:59:56 [DS2.Metrics    ] DEBUG   Hardware-Filter           in=  2112.7/s out=  2112.7/s busy=0.619 true=  3415.0/s sel=1.000
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 244
+2026-03-09 19:59:56 [DS2.Metrics    ] DEBUG   Signal-Extraction         in=  1887.3/s out=  1887.4/s busy=0.390 true=  4835.0/s sel=1.000
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 240
+2026-03-09 19:59:56 [DS2.Metrics    ] DEBUG   Feature-Extraction        in=  1889.9/s out=  1889.9/s busy=0.036 true= 37798.8/s sel=1.000
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 233
+2026-03-09 19:59:56 [DS2.Metrics    ] DEBUG   Grid-Aggregation          in=  1882.4/s out=    91.0/s busy=0.035 true= 37648.6/s sel=0.048
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 205
+2026-03-09 19:59:56 [DS2.Metrics    ] DEBUG   Sink: GridSummary-Sink    in=    91.0/s out=     0.0/s busy=0.000 true=  1820.8/s sel=0.000
+2026-03-09 19:59:56 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 232
+2026-03-09 19:59:56 [DS2.Metrics    ] DEBUG   Sink: EventFeature-Sink   in=  1880.7/s out=     0.0/s busy=0.017 true= 37614.1/s sel=0.000
+2026-03-09 19:59:56 [DS2.Metrics    ] INFO  Metrics collected: 7/7 vertices valid
+2026-03-09 19:59:56 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:59:56 [DS2.Model      ] INFO  DS2 Model Computing ...
+2026-03-09 19:59:56 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+--- Source: RocketMQ-Source -> Watermark-Assigner (P=1) ---
+2026-03-09 19:59:56 [DS2.Model      ] INFO    actual_out=2112.4/s  busy=0.000  target_out=2112.4/s  -> P: 1 -> 1
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+--- Hardware-Filter (P=2) ---
+2026-03-09 19:59:56 [DS2.Model      ] INFO    target_input=2112.4/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO    per_inst=1707.5/s  target_in_margin=3802.4/s  raw_p=3  -> P: 2 -> 3  target_out=2112.4/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+--- Signal-Extraction (P=2) ---
+2026-03-09 19:59:56 [DS2.Model      ] INFO    target_input=2112.4/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO    per_inst=2417.5/s  target_in_margin=3802.4/s  raw_p=2  -> P: 2 -> 2  target_out=2112.5/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+--- Feature-Extraction (P=2) ---
+2026-03-09 19:59:56 [DS2.Model      ] INFO    target_input=2112.5/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO    busy=0.036 < 0.1 -> Idle+underloaded: per_inst=18899.4 needed=1 -> SCALE_DOWN  P: 2 -> 1  target_out=2112.5/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+--- Grid-Aggregation (P=2) ---
+2026-03-09 19:59:56 [DS2.Model      ] INFO    target_input=2112.5/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO    busy=0.035 < 0.1 -> Idle+underloaded: per_inst=18824.3 needed=1 -> SCALE_DOWN  P: 2 -> 1  target_out=102.2/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+--- Sink: EventFeature-Sink (P=3) ---
+2026-03-09 19:59:56 [DS2.Model      ] INFO    target_input=2112.5/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO    busy=0.017 < 0.1 -> Idle+underloaded: per_inst=12538.0 needed=2 -> SCALE_DOWN  P: 3 -> 2  target_out=0.0/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+--- Sink: GridSummary-Sink (P=3) ---
+2026-03-09 19:59:56 [DS2.Model      ] INFO    target_input=102.2/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> Idle+underloaded: per_inst=606.9 needed=2 -> SCALE_DOWN  P: 3 -> 2  target_out=0.0/s
+2026-03-09 19:59:56 [DS2.Model      ] INFO  
+============================================================
+2026-03-09 19:59:56 [DS2.Model      ] INFO  Decision Summary:
+2026-03-09 19:59:56 [DS2.Model      ] INFO  ------------------------------------------------------------
+2026-03-09 19:59:56 [DS2.Model      ] INFO    Source: RocketMQ-Source -> Watermark-Assigner 1 -> 1  NO_CHANGE  (Source busy=0.000)
+2026-03-09 19:59:56 [DS2.Model      ] INFO    Hardware-Filter                               2 -> 3  SCALE_UP [UP]  (in=3802.4 per_inst=1707.5 raw_p=3 busy=0.619)
+2026-03-09 19:59:56 [DS2.Model      ] INFO    Signal-Extraction                             2 -> 2  NO_CHANGE  (in=3802.4 per_inst=2417.5 raw_p=2 busy=0.390)
+2026-03-09 19:59:56 [DS2.Model      ] INFO    Feature-Extraction                            2 -> 1  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=18899.4 needed=1 -> SCALE_DOWN)
+2026-03-09 19:59:56 [DS2.Model      ] INFO    Grid-Aggregation                              2 -> 1  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=18824.3 needed=1 -> SCALE_DOWN)
+2026-03-09 19:59:56 [DS2.Model      ] INFO    Sink: EventFeature-Sink                       3 -> 2  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=12538.0 needed=2 -> SCALE_DOWN)
+2026-03-09 19:59:56 [DS2.Model      ] INFO    Sink: GridSummary-Sink                        3 -> 2  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=606.9 needed=2 -> SCALE_DOWN)
+2026-03-09 19:59:56 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:59:56 [DS2.Filter     ] DEBUG   Hardware-Filter: activation window 2/3, wait
+2026-03-09 19:59:56 [DS2.Filter     ] DEBUG   Feature-Extraction: activation window 2/3, wait
+2026-03-09 19:59:56 [DS2.Filter     ] DEBUG   Grid-Aggregation: activation window 2/3, wait
+2026-03-09 19:59:56 [DS2.Filter     ] DEBUG   Sink: EventFeature-Sink: activation window 2/3, wait
+2026-03-09 19:59:56 [DS2.Filter     ] DEBUG   Sink: GridSummary-Sink: activation window 2/3, wait
+2026-03-09 19:59:56 [DS2.Filter     ] INFO    No decisions approved this round
+2026-03-09 19:59:56 [DS2.Controller ] INFO  No approved changes
+2026-03-09 20:00:11 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:00:11 [DS2.Controller ] INFO  # Round 4
+2026-03-09 20:00:11 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 2810
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6 HTTP/11" 200 7015
+2026-03-09 20:00:11 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (63c4c9f5aafa8f87530815921c74edb6)
+2026-03-09 20:00:11 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 20:00:11 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 20:00:11 [DS2.Controller ] INFO    Hardware-Filter (P=2, arg=p-filter)
+2026-03-09 20:00:11 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 20:00:11 [DS2.Controller ] INFO    Feature-Extraction (P=2, arg=p-feature)
+2026-03-09 20:00:11 [DS2.Controller ] INFO    Grid-Aggregation (P=2, arg=p-grid)
+2026-03-09 20:00:11 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=3, arg=p-sink)
+2026-03-09 20:00:11 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=3, arg=p-sink)
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 220
+2026-03-09 20:00:11 [DS2.Metrics    ] DEBUG   Source: RocketMQ-Source -> Watermark-Assigner in=     0.0/s out=  2340.2/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 244
+2026-03-09 20:00:11 [DS2.Metrics    ] DEBUG   Hardware-Filter           in=  2346.4/s out=  2346.4/s busy=0.654 true=  3588.8/s sel=1.000
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 244
+2026-03-09 20:00:11 [DS2.Metrics    ] DEBUG   Signal-Extraction         in=  2099.8/s out=  2099.7/s busy=0.444 true=  4728.6/s sel=1.000
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 240
+2026-03-09 20:00:11 [DS2.Metrics    ] DEBUG   Feature-Extraction        in=  2098.9/s out=  2098.9/s busy=0.046 true= 41977.7/s sel=1.000
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 236
+2026-03-09 20:00:11 [DS2.Metrics    ] DEBUG   Grid-Aggregation          in=  2086.6/s out=   110.0/s busy=0.046 true= 41731.9/s sel=0.053
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 208
+2026-03-09 20:00:11 [DS2.Metrics    ] DEBUG   Sink: GridSummary-Sink    in=   110.0/s out=     0.0/s busy=0.000 true=  2200.1/s sel=0.000
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 232
+2026-03-09 20:00:11 [DS2.Metrics    ] DEBUG   Sink: EventFeature-Sink   in=  2087.5/s out=     0.0/s busy=0.019 true= 41749.2/s sel=0.000
+2026-03-09 20:00:11 [DS2.Metrics    ] INFO  Metrics collected: 7/7 vertices valid
+2026-03-09 20:00:11 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:00:11 [DS2.Model      ] INFO  DS2 Model Computing ...
+2026-03-09 20:00:11 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+--- Source: RocketMQ-Source -> Watermark-Assigner (P=1) ---
+2026-03-09 20:00:11 [DS2.Model      ] INFO    actual_out=2340.2/s  busy=0.000  target_out=2340.2/s  -> P: 1 -> 1
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+--- Hardware-Filter (P=2) ---
+2026-03-09 20:00:11 [DS2.Model      ] INFO    target_input=2340.2/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO    per_inst=1794.4/s  target_in_margin=4212.4/s  raw_p=3  -> P: 2 -> 3  target_out=2340.2/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+--- Signal-Extraction (P=2) ---
+2026-03-09 20:00:11 [DS2.Model      ] INFO    target_input=2340.2/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO    per_inst=2364.3/s  target_in_margin=4212.4/s  raw_p=2  -> P: 2 -> 2  target_out=2340.1/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+--- Feature-Extraction (P=2) ---
+2026-03-09 20:00:11 [DS2.Model      ] INFO    target_input=2340.1/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO    busy=0.046 < 0.1 -> Idle+underloaded: per_inst=20988.9 needed=1 -> SCALE_DOWN  P: 2 -> 1  target_out=2340.1/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+--- Grid-Aggregation (P=2) ---
+2026-03-09 20:00:11 [DS2.Model      ] INFO    target_input=2340.1/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO    busy=0.046 < 0.1 -> Idle+underloaded: per_inst=20866.0 needed=1 -> SCALE_DOWN  P: 2 -> 1  target_out=123.4/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+--- Sink: EventFeature-Sink (P=3) ---
+2026-03-09 20:00:11 [DS2.Model      ] INFO    target_input=2340.1/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO    busy=0.019 < 0.1 -> Idle+underloaded: per_inst=13916.4 needed=2 -> SCALE_DOWN  P: 3 -> 2  target_out=0.0/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+--- Sink: GridSummary-Sink (P=3) ---
+2026-03-09 20:00:11 [DS2.Model      ] INFO    target_input=123.4/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> Idle+underloaded: per_inst=733.4 needed=2 -> SCALE_DOWN  P: 3 -> 2  target_out=0.0/s
+2026-03-09 20:00:11 [DS2.Model      ] INFO  
+============================================================
+2026-03-09 20:00:11 [DS2.Model      ] INFO  Decision Summary:
+2026-03-09 20:00:11 [DS2.Model      ] INFO  ------------------------------------------------------------
+2026-03-09 20:00:11 [DS2.Model      ] INFO    Source: RocketMQ-Source -> Watermark-Assigner 1 -> 1  NO_CHANGE  (Source busy=0.000)
+2026-03-09 20:00:11 [DS2.Model      ] INFO    Hardware-Filter                               2 -> 3  SCALE_UP [UP]  (in=4212.4 per_inst=1794.4 raw_p=3 busy=0.654)
+2026-03-09 20:00:11 [DS2.Model      ] INFO    Signal-Extraction                             2 -> 2  NO_CHANGE  (in=4212.4 per_inst=2364.3 raw_p=2 busy=0.444)
+2026-03-09 20:00:11 [DS2.Model      ] INFO    Feature-Extraction                            2 -> 1  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=20988.9 needed=1 -> SCALE_DOWN)
+2026-03-09 20:00:11 [DS2.Model      ] INFO    Grid-Aggregation                              2 -> 1  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=20866.0 needed=1 -> SCALE_DOWN)
+2026-03-09 20:00:11 [DS2.Model      ] INFO    Sink: EventFeature-Sink                       3 -> 2  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=13916.4 needed=2 -> SCALE_DOWN)
+2026-03-09 20:00:11 [DS2.Model      ] INFO    Sink: GridSummary-Sink                        3 -> 2  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=733.4 needed=2 -> SCALE_DOWN)
+2026-03-09 20:00:11 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:00:11 [DS2.Filter     ] INFO    [APPROVED] Hardware-Filter: 2 -> 3 (window=[2, 3, 3])
+2026-03-09 20:00:11 [DS2.Filter     ] INFO    [APPROVED] Feature-Extraction: 2 -> 1 (window=[2, 1, 1])
+2026-03-09 20:00:11 [DS2.Filter     ] INFO    [APPROVED] Grid-Aggregation: 2 -> 1 (window=[2, 1, 1])
+2026-03-09 20:00:11 [DS2.Filter     ] INFO    [APPROVED] Sink: EventFeature-Sink: 3 -> 2 (window=[1, 2, 2])
+2026-03-09 20:00:11 [DS2.Filter     ] INFO    [APPROVED] Sink: GridSummary-Sink: 3 -> 2 (window=[3, 2, 2])
+2026-03-09 20:00:11 [DS2.Controller ] INFO  5 change(s) approved, executing ...
+2026-03-09 20:00:11 [DS2.Executor   ] INFO  ============================================================
+2026-03-09 20:00:11 [DS2.Executor   ] INFO  EXECUTING SCALING
+2026-03-09 20:00:11 [DS2.Executor   ] INFO  ============================================================
+2026-03-09 20:00:11 [DS2.Executor   ] INFO    Hardware-Filter: 2 -> 3
+2026-03-09 20:00:11 [DS2.Executor   ] INFO    Feature-Extraction: 2 -> 1
+2026-03-09 20:00:11 [DS2.Executor   ] INFO    Grid-Aggregation: 2 -> 1
+2026-03-09 20:00:11 [DS2.Executor   ] INFO    Sink: EventFeature-Sink: 3 -> 2
+2026-03-09 20:00:11 [DS2.Executor   ] INFO    Sink: GridSummary-Sink: 3 -> 2
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jars HTTP/11" 200 261
+2026-03-09 20:00:11 [DS2.Executor   ] INFO  JAR id: 72b3c034-81e4-451b-bbd3-393d5ce2572c_flink-rocketmq-demo-1.0-SNAPSHOT.jar
+2026-03-09 20:00:11 [DS2.Executor   ] INFO  programArgs: --p-feature 1 --p-filter 3 --p-grid 1 --p-signal 2 --p-sink 2 --p-source 1
+2026-03-09 20:00:11 [DS2.FlinkClient] INFO  Triggering savepoint ...
+2026-03-09 20:00:11 [DS2.FlinkClient] INFO    target dir: hdfs://node01:9000/flink/savepoints
+2026-03-09 20:00:11 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "POST /jobs/63c4c9f5aafa8f87530815921c74edb6/savepoints HTTP/11" 202 49
+2026-03-09 20:00:12 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/savepoints/93a2e8b48680b6b1e7e6127b93ebc92d HTTP/11" 200 48
+2026-03-09 20:00:13 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/savepoints/93a2e8b48680b6b1e7e6127b93ebc92d HTTP/11" 200 48
+2026-03-09 20:00:14 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6/savepoints/93a2e8b48680b6b1e7e6127b93ebc92d HTTP/11" 200 122
+2026-03-09 20:00:14 [DS2.FlinkClient] INFO  Savepoint done: hdfs://node01:9000/flink/savepoints/savepoint-63c4c9-9aab8ae59ec4
+2026-03-09 20:00:14 [DS2.FlinkClient] INFO  Cancelling job 63c4c9f5aafa8f87530815921c74edb6 ...
+2026-03-09 20:00:14 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "PATCH /jobs/63c4c9f5aafa8f87530815921c74edb6?mode=cancel HTTP/11" 202 2
+2026-03-09 20:00:15 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/63c4c9f5aafa8f87530815921c74edb6 HTTP/11" 200 7146
+2026-03-09 20:00:15 [DS2.FlinkClient] INFO  Job cancelled
+2026-03-09 20:00:15 [DS2.Executor   ] INFO  Waiting 5s for resource release ...
+2026-03-09 20:00:20 [DS2.FlinkClient] INFO  Submitting job: global_parallelism=3
+2026-03-09 20:00:20 [DS2.FlinkClient] INFO    programArgs : --p-feature 1 --p-filter 3 --p-grid 1 --p-signal 2 --p-sink 2 --p-source 1
+2026-03-09 20:00:20 [DS2.FlinkClient] INFO    savepoint   : hdfs://node01:9000/flink/savepoints/savepoint-63c4c9-9aab8ae59ec4
+2026-03-09 20:00:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "POST /jars/72b3c034-81e4-451b-bbd3-393d5ce2572c_flink-rocketmq-demo-1.0-SNAPSHOT.jar/run HTTP/11" 200 44
+2026-03-09 20:00:21 [DS2.FlinkClient] INFO  Job submitted: 6e40896882c8832e18daa1a92de0c5e6
+2026-03-09 20:00:21 [DS2.Executor   ] INFO  [OK] Scaling complete! New Job: 6e40896882c8832e18daa1a92de0c5e6
+2026-03-09 20:00:21 [DS2.Metrics    ] INFO  Metrics collector reset
+2026-03-09 20:00:21 [DS2.Filter     ] INFO  Decision filter reset
+2026-03-09 20:00:21 [DS2.Controller ] INFO  Scaling done, warm-up 60s starts
+2026-03-09 20:00:36 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:00:36 [DS2.Controller ] INFO  # Round 5
+2026-03-09 20:00:36 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:00:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 3161
+2026-03-09 20:00:36 [DS2.Controller ] INFO  Warm-up: 15s / 60s
+2026-03-09 20:00:36 [DS2.Controller ] INFO  Warming up, skip
+2026-03-09 20:00:51 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:00:51 [DS2.Controller ] INFO  # Round 6
+2026-03-09 20:00:51 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:00:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 3161
+2026-03-09 20:00:51 [DS2.Controller ] INFO  Warm-up: 30s / 60s
+2026-03-09 20:00:51 [DS2.Controller ] INFO  Warming up, skip
+2026-03-09 20:01:06 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:01:06 [DS2.Controller ] INFO  # Round 7
+2026-03-09 20:01:06 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:01:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 3161
+2026-03-09 20:01:06 [DS2.Controller ] INFO  Warm-up: 45s / 60s
+2026-03-09 20:01:06 [DS2.Controller ] INFO  Warming up, skip
+2026-03-09 20:01:21 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:01:21 [DS2.Controller ] INFO  # Round 8
+2026-03-09 20:01:21 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 3161
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6 HTTP/11" 200 6895
+2026-03-09 20:01:21 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (6e40896882c8832e18daa1a92de0c5e6)
+2026-03-09 20:01:21 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 20:01:21 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 20:01:21 [DS2.Controller ] INFO    Hardware-Filter (P=3, arg=p-filter)
+2026-03-09 20:01:21 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 20:01:21 [DS2.Controller ] INFO    Feature-Extraction (P=1, arg=p-feature)
+2026-03-09 20:01:21 [DS2.Controller ] INFO    Grid-Aggregation (P=1, arg=p-grid)
+2026-03-09 20:01:21 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=2, arg=p-sink)
+2026-03-09 20:01:21 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=2, arg=p-sink)
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 204
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:21 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:21 [DS2.Metrics    ] INFO  Metrics collected: 0/7 vertices valid
+2026-03-09 20:01:21 [DS2.Controller ] INFO  Need at least 2 samples for diff, skip
+2026-03-09 20:01:36 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:01:36 [DS2.Controller ] INFO  # Round 9
+2026-03-09 20:01:36 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 3161
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6 HTTP/11" 200 6895
+2026-03-09 20:01:36 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (6e40896882c8832e18daa1a92de0c5e6)
+2026-03-09 20:01:36 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 20:01:36 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 20:01:36 [DS2.Controller ] INFO    Hardware-Filter (P=3, arg=p-filter)
+2026-03-09 20:01:36 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 20:01:36 [DS2.Controller ] INFO    Feature-Extraction (P=1, arg=p-feature)
+2026-03-09 20:01:36 [DS2.Controller ] INFO    Grid-Aggregation (P=1, arg=p-grid)
+2026-03-09 20:01:36 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=2, arg=p-sink)
+2026-03-09 20:01:36 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=2, arg=p-sink)
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 204
+2026-03-09 20:01:36 [DS2.Metrics    ] DEBUG   Source: RocketMQ-Source -> Watermark-Assigner in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:36 [DS2.Metrics    ] DEBUG   Hardware-Filter           in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:36 [DS2.Metrics    ] DEBUG   Signal-Extraction         in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:36 [DS2.Metrics    ] DEBUG   Feature-Extraction        in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:36 [DS2.Metrics    ] DEBUG   Grid-Aggregation          in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:36 [DS2.Metrics    ] DEBUG   Sink: GridSummary-Sink    in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:36 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:36 [DS2.Metrics    ] DEBUG   Sink: EventFeature-Sink   in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:36 [DS2.Metrics    ] INFO  Metrics collected: 7/7 vertices valid
+2026-03-09 20:01:36 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:01:36 [DS2.Model      ] INFO  DS2 Model Computing ...
+2026-03-09 20:01:36 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+--- Source: RocketMQ-Source -> Watermark-Assigner (P=1) ---
+2026-03-09 20:01:36 [DS2.Model      ] INFO    actual_out=0.0/s  busy=0.000  target_out=0.0/s  -> P: 1 -> 1
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+--- Hardware-Filter (P=3) ---
+2026-03-09 20:01:36 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 3 -> 1  target_out=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+--- Signal-Extraction (P=2) ---
+2026-03-09 20:01:36 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+--- Feature-Extraction (P=1) ---
+2026-03-09 20:01:36 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 1 -> 1  target_out=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+--- Grid-Aggregation (P=1) ---
+2026-03-09 20:01:36 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 1 -> 1  target_out=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+--- Sink: EventFeature-Sink (P=2) ---
+2026-03-09 20:01:36 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+--- Sink: GridSummary-Sink (P=2) ---
+2026-03-09 20:01:36 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:01:36 [DS2.Model      ] INFO  
+============================================================
+2026-03-09 20:01:36 [DS2.Model      ] INFO  Decision Summary:
+2026-03-09 20:01:36 [DS2.Model      ] INFO  ------------------------------------------------------------
+2026-03-09 20:01:36 [DS2.Model      ] INFO    Source: RocketMQ-Source -> Watermark-Assigner 1 -> 1  NO_CHANGE  (Source busy=0.000)
+2026-03-09 20:01:36 [DS2.Model      ] INFO    Hardware-Filter                               3 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:36 [DS2.Model      ] INFO    Signal-Extraction                             2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:36 [DS2.Model      ] INFO    Feature-Extraction                            1 -> 1  NO_CHANGE  (No upstream data, set min_p=1)
+2026-03-09 20:01:36 [DS2.Model      ] INFO    Grid-Aggregation                              1 -> 1  NO_CHANGE  (No upstream data, set min_p=1)
+2026-03-09 20:01:36 [DS2.Model      ] INFO    Sink: EventFeature-Sink                       2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:36 [DS2.Model      ] INFO    Sink: GridSummary-Sink                        2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:36 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:01:36 [DS2.Filter     ] DEBUG   Hardware-Filter: activation window 1/3, wait
+2026-03-09 20:01:36 [DS2.Filter     ] DEBUG   Signal-Extraction: activation window 1/3, wait
+2026-03-09 20:01:36 [DS2.Filter     ] DEBUG   Sink: EventFeature-Sink: activation window 1/3, wait
+2026-03-09 20:01:36 [DS2.Filter     ] DEBUG   Sink: GridSummary-Sink: activation window 1/3, wait
+2026-03-09 20:01:36 [DS2.Filter     ] INFO    No decisions approved this round
+2026-03-09 20:01:36 [DS2.Controller ] INFO  No approved changes
+2026-03-09 20:01:51 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:01:51 [DS2.Controller ] INFO  # Round 10
+2026-03-09 20:01:51 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 3161
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6 HTTP/11" 200 6896
+2026-03-09 20:01:51 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (6e40896882c8832e18daa1a92de0c5e6)
+2026-03-09 20:01:51 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 20:01:51 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 20:01:51 [DS2.Controller ] INFO    Hardware-Filter (P=3, arg=p-filter)
+2026-03-09 20:01:51 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 20:01:51 [DS2.Controller ] INFO    Feature-Extraction (P=1, arg=p-feature)
+2026-03-09 20:01:51 [DS2.Controller ] INFO    Grid-Aggregation (P=1, arg=p-grid)
+2026-03-09 20:01:51 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=2, arg=p-sink)
+2026-03-09 20:01:51 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=2, arg=p-sink)
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 204
+2026-03-09 20:01:51 [DS2.Metrics    ] DEBUG   Source: RocketMQ-Source -> Watermark-Assigner in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:51 [DS2.Metrics    ] DEBUG   Hardware-Filter           in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:51 [DS2.Metrics    ] DEBUG   Signal-Extraction         in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:51 [DS2.Metrics    ] DEBUG   Feature-Extraction        in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:51 [DS2.Metrics    ] DEBUG   Grid-Aggregation          in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:51 [DS2.Metrics    ] DEBUG   Sink: GridSummary-Sink    in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:51 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:01:51 [DS2.Metrics    ] DEBUG   Sink: EventFeature-Sink   in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:01:51 [DS2.Metrics    ] INFO  Metrics collected: 7/7 vertices valid
+2026-03-09 20:01:51 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:01:51 [DS2.Model      ] INFO  DS2 Model Computing ...
+2026-03-09 20:01:51 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+--- Source: RocketMQ-Source -> Watermark-Assigner (P=1) ---
+2026-03-09 20:01:51 [DS2.Model      ] INFO    actual_out=0.0/s  busy=0.000  target_out=0.0/s  -> P: 1 -> 1
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+--- Hardware-Filter (P=3) ---
+2026-03-09 20:01:51 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 3 -> 1  target_out=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+--- Signal-Extraction (P=2) ---
+2026-03-09 20:01:51 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+--- Feature-Extraction (P=1) ---
+2026-03-09 20:01:51 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 1 -> 1  target_out=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+--- Grid-Aggregation (P=1) ---
+2026-03-09 20:01:51 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 1 -> 1  target_out=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+--- Sink: EventFeature-Sink (P=2) ---
+2026-03-09 20:01:51 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+--- Sink: GridSummary-Sink (P=2) ---
+2026-03-09 20:01:51 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:01:51 [DS2.Model      ] INFO  
+============================================================
+2026-03-09 20:01:51 [DS2.Model      ] INFO  Decision Summary:
+2026-03-09 20:01:51 [DS2.Model      ] INFO  ------------------------------------------------------------
+2026-03-09 20:01:51 [DS2.Model      ] INFO    Source: RocketMQ-Source -> Watermark-Assigner 1 -> 1  NO_CHANGE  (Source busy=0.000)
+2026-03-09 20:01:51 [DS2.Model      ] INFO    Hardware-Filter                               3 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:51 [DS2.Model      ] INFO    Signal-Extraction                             2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:51 [DS2.Model      ] INFO    Feature-Extraction                            1 -> 1  NO_CHANGE  (No upstream data, set min_p=1)
+2026-03-09 20:01:51 [DS2.Model      ] INFO    Grid-Aggregation                              1 -> 1  NO_CHANGE  (No upstream data, set min_p=1)
+2026-03-09 20:01:51 [DS2.Model      ] INFO    Sink: EventFeature-Sink                       2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:51 [DS2.Model      ] INFO    Sink: GridSummary-Sink                        2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:01:51 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:01:51 [DS2.Filter     ] DEBUG   Hardware-Filter: activation window 2/3, wait
+2026-03-09 20:01:51 [DS2.Filter     ] DEBUG   Signal-Extraction: activation window 2/3, wait
+2026-03-09 20:01:51 [DS2.Filter     ] DEBUG   Sink: EventFeature-Sink: activation window 2/3, wait
+2026-03-09 20:01:51 [DS2.Filter     ] DEBUG   Sink: GridSummary-Sink: activation window 2/3, wait
+2026-03-09 20:01:51 [DS2.Filter     ] INFO    No decisions approved this round
+2026-03-09 20:01:51 [DS2.Controller ] INFO  No approved changes
+2026-03-09 20:02:06 [DS2.Controller ] INFO  
+############################################################
+2026-03-09 20:02:06 [DS2.Controller ] INFO  # Round 11
+2026-03-09 20:02:06 [DS2.Controller ] INFO  ############################################################
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 3162
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6 HTTP/11" 200 6906
+2026-03-09 20:02:06 [DS2.Controller ] INFO  Job: Seismic-Stream-Job (6e40896882c8832e18daa1a92de0c5e6)
+2026-03-09 20:02:06 [DS2.Controller ] INFO  Vertices: 7, Edges: 6
+2026-03-09 20:02:06 [DS2.Controller ] INFO    Source: RocketMQ-Source -> Watermark-Assigner (P=1, arg=p-source)
+2026-03-09 20:02:06 [DS2.Controller ] INFO    Hardware-Filter (P=3, arg=p-filter)
+2026-03-09 20:02:06 [DS2.Controller ] INFO    Signal-Extraction (P=2, arg=p-signal)
+2026-03-09 20:02:06 [DS2.Controller ] INFO    Feature-Extraction (P=1, arg=p-feature)
+2026-03-09 20:02:06 [DS2.Controller ] INFO    Grid-Aggregation (P=1, arg=p-grid)
+2026-03-09 20:02:06 [DS2.Controller ] INFO    Sink: GridSummary-Sink (P=2, arg=p-sink)
+2026-03-09 20:02:06 [DS2.Controller ] INFO    Sink: EventFeature-Sink (P=2, arg=p-sink)
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 204
+2026-03-09 20:02:06 [DS2.Metrics    ] DEBUG   Source: RocketMQ-Source -> Watermark-Assigner in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:02:06 [DS2.Metrics    ] DEBUG   Hardware-Filter           in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:02:06 [DS2.Metrics    ] DEBUG   Signal-Extraction         in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:02:06 [DS2.Metrics    ] DEBUG   Feature-Extraction        in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:02:06 [DS2.Metrics    ] DEBUG   Grid-Aggregation          in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:02:06 [DS2.Metrics    ] DEBUG   Sink: GridSummary-Sink    in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 196
+2026-03-09 20:02:06 [DS2.Metrics    ] DEBUG   Sink: EventFeature-Sink   in=     0.0/s out=     0.0/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 20:02:06 [DS2.Metrics    ] INFO  Metrics collected: 7/7 vertices valid
+2026-03-09 20:02:06 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:02:06 [DS2.Model      ] INFO  DS2 Model Computing ...
+2026-03-09 20:02:06 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+--- Source: RocketMQ-Source -> Watermark-Assigner (P=1) ---
+2026-03-09 20:02:06 [DS2.Model      ] INFO    actual_out=0.0/s  busy=0.000  target_out=0.0/s  -> P: 1 -> 1
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+--- Hardware-Filter (P=3) ---
+2026-03-09 20:02:06 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 3 -> 1  target_out=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+--- Signal-Extraction (P=2) ---
+2026-03-09 20:02:06 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+--- Feature-Extraction (P=1) ---
+2026-03-09 20:02:06 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 1 -> 1  target_out=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+--- Grid-Aggregation (P=1) ---
+2026-03-09 20:02:06 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 1 -> 1  target_out=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+--- Sink: EventFeature-Sink (P=2) ---
+2026-03-09 20:02:06 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+--- Sink: GridSummary-Sink (P=2) ---
+2026-03-09 20:02:06 [DS2.Model      ] INFO    target_input=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> No upstream data, set min_p=1  P: 2 -> 1  target_out=0.0/s
+2026-03-09 20:02:06 [DS2.Model      ] INFO  
+============================================================
+2026-03-09 20:02:06 [DS2.Model      ] INFO  Decision Summary:
+2026-03-09 20:02:06 [DS2.Model      ] INFO  ------------------------------------------------------------
+2026-03-09 20:02:06 [DS2.Model      ] INFO    Source: RocketMQ-Source -> Watermark-Assigner 1 -> 1  NO_CHANGE  (Source busy=0.000)
+2026-03-09 20:02:06 [DS2.Model      ] INFO    Hardware-Filter                               3 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:02:06 [DS2.Model      ] INFO    Signal-Extraction                             2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:02:06 [DS2.Model      ] INFO    Feature-Extraction                            1 -> 1  NO_CHANGE  (No upstream data, set min_p=1)
+2026-03-09 20:02:06 [DS2.Model      ] INFO    Grid-Aggregation                              1 -> 1  NO_CHANGE  (No upstream data, set min_p=1)
+2026-03-09 20:02:06 [DS2.Model      ] INFO    Sink: EventFeature-Sink                       2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:02:06 [DS2.Model      ] INFO    Sink: GridSummary-Sink                        2 -> 1  SCALE_DOWN [DOWN]  (No upstream data, set min_p=1)
+2026-03-09 20:02:06 [DS2.Model      ] INFO  ============================================================
+2026-03-09 20:02:06 [DS2.Filter     ] INFO    [APPROVED] Hardware-Filter: 3 -> 1 (window=[1, 1, 1])
+2026-03-09 20:02:06 [DS2.Filter     ] INFO    [APPROVED] Signal-Extraction: 2 -> 1 (window=[1, 1, 1])
+2026-03-09 20:02:06 [DS2.Filter     ] INFO    [APPROVED] Sink: EventFeature-Sink: 2 -> 1 (window=[1, 1, 1])
+2026-03-09 20:02:06 [DS2.Filter     ] INFO    [APPROVED] Sink: GridSummary-Sink: 2 -> 1 (window=[1, 1, 1])
+2026-03-09 20:02:06 [DS2.Controller ] INFO  4 change(s) approved, executing ...
+2026-03-09 20:02:06 [DS2.Executor   ] INFO  ============================================================
+2026-03-09 20:02:06 [DS2.Executor   ] INFO  EXECUTING SCALING
+2026-03-09 20:02:06 [DS2.Executor   ] INFO  ============================================================
+2026-03-09 20:02:06 [DS2.Executor   ] INFO    Hardware-Filter: 3 -> 1
+2026-03-09 20:02:06 [DS2.Executor   ] INFO    Signal-Extraction: 2 -> 1
+2026-03-09 20:02:06 [DS2.Executor   ] INFO    Sink: EventFeature-Sink: 2 -> 1
+2026-03-09 20:02:06 [DS2.Executor   ] INFO    Sink: GridSummary-Sink: 2 -> 1
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jars HTTP/11" 200 261
+2026-03-09 20:02:06 [DS2.Executor   ] INFO  JAR id: 72b3c034-81e4-451b-bbd3-393d5ce2572c_flink-rocketmq-demo-1.0-SNAPSHOT.jar
+2026-03-09 20:02:06 [DS2.Executor   ] INFO  programArgs: --p-feature 1 --p-filter 1 --p-grid 1 --p-signal 1 --p-sink 1 --p-source 1
+2026-03-09 20:02:06 [DS2.FlinkClient] INFO  Triggering savepoint ...
+2026-03-09 20:02:06 [DS2.FlinkClient] INFO    target dir: hdfs://node01:9000/flink/savepoints
+2026-03-09 20:02:06 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "POST /jobs/6e40896882c8832e18daa1a92de0c5e6/savepoints HTTP/11" 202 49
+2026-03-09 20:02:07 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6/savepoints/883040e41bb148a5962a790a923f84ca HTTP/11" 200 122
+2026-03-09 20:02:07 [DS2.FlinkClient] INFO  Savepoint done: hdfs://node01:9000/flink/savepoints/savepoint-6e4089-08d5051e269f
+2026-03-09 20:02:07 [DS2.FlinkClient] INFO  Cancelling job 6e40896882c8832e18daa1a92de0c5e6 ...
+2026-03-09 20:02:07 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "PATCH /jobs/6e40896882c8832e18daa1a92de0c5e6?mode=cancel HTTP/11" 202 2
+2026-03-09 20:02:08 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6 HTTP/11" 200 6906
+2026-03-09 20:02:09 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/6e40896882c8832e18daa1a92de0c5e6 HTTP/11" 200 7027
+2026-03-09 20:02:09 [DS2.FlinkClient] INFO  Job cancelled
+2026-03-09 20:02:09 [DS2.Executor   ] INFO  Waiting 5s for resource release ...
+2026-03-09 20:02:14 [DS2.FlinkClient] INFO  Submitting job: global_parallelism=1
+2026-03-09 20:02:14 [DS2.FlinkClient] INFO    programArgs : --p-feature 1 --p-filter 1 --p-grid 1 --p-signal 1 --p-sink 1 --p-source 1
+2026-03-09 20:02:14 [DS2.FlinkClient] INFO    savepoint   : hdfs://node01:9000/flink/savepoints/savepoint-6e4089-08d5051e269f
+2026-03-09 20:02:15 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "POST /jars/72b3c034-81e4-451b-bbd3-393d5ce2572c_flink-rocketmq-demo-1.0-SNAPSHOT.jar/run HTTP/11" 200 44
+2026-03-09 20:02:15 [DS2.FlinkClient] INFO  Job submitted: 3542ffc60c6a2c14b0eb47977954264a
+2026-03-09 20:02:15 [DS2.Executor   ] INFO  [OK] Scaling complete! New Job: 3542ffc60c6a2c14b0eb47977954264a
+2026-03-09 20:02:15 [DS2.Metrics    ] INFO  Metrics collector reset
+2026-03-09 20:02:15 [DS2.Filter     ] INFO  Decision filter reset
+2026-03-09 20:02:15 [DS2.Controller ] INFO  Scaling done, warm-up 60s starts
+2026-03-09 20:02:21 [DS2.Controller ] INFO  Signal 2 received, stopping ...
+2026-03-09 20:02:21 [DS2.Controller ] INFO  DS2 Controller stopped

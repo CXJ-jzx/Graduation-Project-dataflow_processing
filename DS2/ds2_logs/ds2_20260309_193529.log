@@ -1,0 +1,135 @@
+2026-03-09 19:35:29 [DS2.Main       ] INFO  DS2 Configuration:
+2026-03-09 19:35:29 [DS2.Main       ] INFO    flink_rest_url    = http://192.168.56.151:8081
+2026-03-09 19:35:29 [DS2.Main       ] INFO    flink_job_name    = Seismic-Stream-Job
+2026-03-09 19:35:29 [DS2.Main       ] INFO    policy_interval   = 15s
+2026-03-09 19:35:29 [DS2.Main       ] INFO    warm_up_time      = 30s
+2026-03-09 19:35:29 [DS2.Main       ] INFO    activation_window = 3
+2026-03-09 19:35:29 [DS2.Main       ] INFO    target_rate_ratio = 1.8
+2026-03-09 19:35:29 [DS2.Main       ] INFO    parallelism range = [1, 8]
+2026-03-09 19:35:29 [DS2.Main       ] INFO    target_jar_name   = flink-rocketmq-demo-1.0-SNAPSHOT
+2026-03-09 19:35:29 [DS2.Main       ] INFO    operator_mapping  = 7 operators:
+2026-03-09 19:35:29 [DS2.Main       ] INFO      source       keyword='RocketMQ-Source'  arg='p-source'  default_p=1
+2026-03-09 19:35:29 [DS2.Main       ] INFO      filter       keyword='Hardware-Filter'  arg='p-filter'  default_p=2
+2026-03-09 19:35:29 [DS2.Main       ] INFO      signal       keyword='Signal-Extraction'  arg='p-signal'  default_p=2
+2026-03-09 19:35:29 [DS2.Main       ] INFO      feature      keyword='Feature-Extraction'  arg='p-feature'  default_p=2
+2026-03-09 19:35:29 [DS2.Main       ] INFO      grid         keyword='Grid-Aggregation'  arg='p-grid'  default_p=2
+2026-03-09 19:35:29 [DS2.Main       ] INFO      sink_event   keyword='EventFeature-Sink'  arg='p-sink'  default_p=1
+2026-03-09 19:35:29 [DS2.Main       ] INFO      sink_grid    keyword='GridSummary-Sink'  arg='p-sink'  default_p=4
+2026-03-09 19:35:29 [DS2.Main       ] INFO  MODE: dry-run (no scaling will be executed)
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG Starting new HTTP connection (1): 192.168.56.151:8081
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /overview HTTP/11" 200 175
+2026-03-09 19:35:29 [DS2.FlinkClient] INFO  Connected to Flink 1.17.2
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/overview HTTP/11" 200 2108
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c HTTP/11" 200 7040
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO  Job: Seismic-Stream-Job (1aba6b4e93270547489857770a2f691c)
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO  Vertices (7):
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Source: RocketMQ-Source -> Watermark-Assigner  P=1  arg=p-source
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Hardware-Filter  P=2  arg=p-filter
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Signal-Extraction  P=2  arg=p-signal
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Feature-Extraction  P=2  arg=p-feature
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Grid-Aggregation  P=2  arg=p-grid
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Sink: GridSummary-Sink  P=3  arg=p-sink
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Sink: EventFeature-Sink  P=3  arg=p-sink
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO  Edges (6):
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Grid-Aggregation -> Sink: GridSummary-Sink
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Feature-Extraction -> Grid-Aggregation
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Feature-Extraction -> Sink: EventFeature-Sink
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Signal-Extraction -> Feature-Extraction
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Hardware-Filter -> Signal-Extraction
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    Source: RocketMQ-Source -> Watermark-Assigner -> Hardware-Filter
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO  
+Topological order:
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    1. Source: RocketMQ-Source -> Watermark-Assigner
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    2. Hardware-Filter
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    3. Signal-Extraction
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    4. Feature-Extraction
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    5. Grid-Aggregation
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    6. Sink: EventFeature-Sink
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO    7. Sink: GridSummary-Sink
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO  
+--- Sample 1 ---
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 224
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 251
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 245
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 239
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 234
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 220
+2026-03-09 19:35:29 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 232
+2026-03-09 19:35:29 [DS2.Metrics    ] INFO  Metrics collected: 0/7 vertices valid
+2026-03-09 19:35:29 [DS2.DryRun     ] INFO  Waiting 15s for sample 2 ...
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c HTTP/11" 200 7042
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  --- Sample 2 ---
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/cbc357ccb763df2852fee8c4fc7d55f2/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 224
+2026-03-09 19:35:44 [DS2.Metrics    ] DEBUG   Source: RocketMQ-Source -> Watermark-Assigner in=     0.0/s out=  5805.1/s busy=0.000 true=     0.0/s sel=1.000
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/9dd63673dd41ea021b896d5203f3ba7c/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 252
+2026-03-09 19:35:44 [DS2.Metrics    ] DEBUG   Hardware-Filter           in=  5813.1/s out=  5813.1/s busy=0.771 true=  7539.6/s sel=1.000
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/1a936cb48657826a536f331e9fb33b5e/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 251
+2026-03-09 19:35:44 [DS2.Metrics    ] DEBUG   Signal-Extraction         in=  3995.4/s out=  3995.4/s busy=0.511 true=  7814.1/s sel=1.000
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/aa0083b97ffaad66a1e3b93651ba4449/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 245
+2026-03-09 19:35:44 [DS2.Metrics    ] DEBUG   Feature-Extraction        in=  4001.2/s out=  4001.2/s busy=0.032 true= 80023.5/s sel=1.000
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/314d6810424be12aceab0578c18283f4/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 237
+2026-03-09 19:35:44 [DS2.Metrics    ] DEBUG   Grid-Aggregation          in=  4004.2/s out=   257.9/s busy=0.043 true= 80084.7/s sel=0.064
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/767c76260c664271178cbdb38d688aae/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 220
+2026-03-09 19:35:44 [DS2.Metrics    ] DEBUG   Sink: GridSummary-Sink    in=   257.9/s out=     0.0/s busy=0.000 true=  5158.9/s sel=0.000
+2026-03-09 19:35:44 [urllib3.connectionpool] DEBUG http://192.168.56.151:8081 "GET /jobs/1aba6b4e93270547489857770a2f691c/vertices/d28af86d1d256ddca4eeaaaee5f83c03/subtasks/metrics?get=numRecordsIn,numRecordsOut,accumulateBusyTimeMs HTTP/11" 200 244
+2026-03-09 19:35:44 [DS2.Metrics    ] DEBUG   Sink: EventFeature-Sink   in=  4001.4/s out=     0.0/s busy=0.051 true= 78154.7/s sel=0.000
+2026-03-09 19:35:44 [DS2.Metrics    ] INFO  Metrics collected: 7/7 vertices valid
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  
+================================================================================
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Operator                      In/s    Out/s   Busy   TrueRate    Sel   P
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  --------------------------------------------------------------------------------
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Source: RocketMQ-Source -> Watermark-Assigner      0.0   5805.1  0.000        0.0  1.000   1
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Hardware-Filter             5813.1   5813.1  0.771     7539.6  1.000   2
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Signal-Extraction           3995.4   3995.4  0.511     7814.1  1.000   2
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Feature-Extraction          4001.2   4001.2  0.032    80023.5  1.000   2
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Grid-Aggregation            4004.2    257.9  0.043    80084.7  0.064   2
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Sink: EventFeature-Sink     4001.4      0.0  0.051    78154.7  0.000   3
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  Sink: GridSummary-Sink       257.9      0.0  0.000     5158.9  0.000   3
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  ================================================================================
+2026-03-09 19:35:44 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:35:44 [DS2.Model      ] INFO  DS2 Model Computing ...
+2026-03-09 19:35:44 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+--- Source: RocketMQ-Source -> Watermark-Assigner (P=1) ---
+2026-03-09 19:35:44 [DS2.Model      ] INFO    actual_out=5805.1/s  busy=0.000  target_out=5805.1/s  -> P: 1 -> 1
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+--- Hardware-Filter (P=2) ---
+2026-03-09 19:35:44 [DS2.Model      ] INFO    target_input=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO    per_inst=3769.8/s  target_in_margin=10449.1/s  raw_p=3  -> P: 2 -> 3  target_out=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+--- Signal-Extraction (P=2) ---
+2026-03-09 19:35:44 [DS2.Model      ] INFO    target_input=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO    per_inst=3907.1/s  target_in_margin=10449.1/s  raw_p=3  -> P: 2 -> 3  target_out=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+--- Feature-Extraction (P=2) ---
+2026-03-09 19:35:44 [DS2.Model      ] INFO    target_input=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO    busy=0.032 < 0.1 -> Idle+underloaded: per_inst=40011.7 needed=1 -> SCALE_DOWN  P: 2 -> 1  target_out=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+--- Grid-Aggregation (P=2) ---
+2026-03-09 19:35:44 [DS2.Model      ] INFO    target_input=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO    busy=0.043 < 0.1 -> Idle+underloaded: per_inst=40042.4 needed=1 -> SCALE_DOWN  P: 2 -> 1  target_out=374.0/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+--- Sink: EventFeature-Sink (P=3) ---
+2026-03-09 19:35:44 [DS2.Model      ] INFO    target_input=5805.1/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO    busy=0.051 < 0.1 -> Idle+underloaded: per_inst=26051.6 needed=2 -> SCALE_DOWN  P: 3 -> 2  target_out=0.0/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+--- Sink: GridSummary-Sink (P=3) ---
+2026-03-09 19:35:44 [DS2.Model      ] INFO    target_input=374.0/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO    busy=0.000 < 0.1 -> Idle+underloaded: per_inst=1719.6 needed=2 -> SCALE_DOWN  P: 3 -> 2  target_out=0.0/s
+2026-03-09 19:35:44 [DS2.Model      ] INFO  
+============================================================
+2026-03-09 19:35:44 [DS2.Model      ] INFO  Decision Summary:
+2026-03-09 19:35:44 [DS2.Model      ] INFO  ------------------------------------------------------------
+2026-03-09 19:35:44 [DS2.Model      ] INFO    Source: RocketMQ-Source -> Watermark-Assigner 1 -> 1  NO_CHANGE  (Source busy=0.000)
+2026-03-09 19:35:44 [DS2.Model      ] INFO    Hardware-Filter                               2 -> 3  SCALE_UP [UP]  (in=10449.1 per_inst=3769.8 raw_p=3 busy=0.771)
+2026-03-09 19:35:44 [DS2.Model      ] INFO    Signal-Extraction                             2 -> 3  SCALE_UP [UP]  (in=10449.1 per_inst=3907.1 raw_p=3 busy=0.511)
+2026-03-09 19:35:44 [DS2.Model      ] INFO    Feature-Extraction                            2 -> 1  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=40011.7 needed=1 -> SCALE_DOWN)
+2026-03-09 19:35:44 [DS2.Model      ] INFO    Grid-Aggregation                              2 -> 1  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=40042.4 needed=1 -> SCALE_DOWN)
+2026-03-09 19:35:44 [DS2.Model      ] INFO    Sink: EventFeature-Sink                       3 -> 2  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=26051.6 needed=2 -> SCALE_DOWN)
+2026-03-09 19:35:44 [DS2.Model      ] INFO    Sink: GridSummary-Sink                        3 -> 2  SCALE_DOWN [DOWN]  (Idle+underloaded: per_inst=1719.6 needed=2 -> SCALE_DOWN)
+2026-03-09 19:35:44 [DS2.Model      ] INFO  ============================================================
+2026-03-09 19:35:44 [DS2.Executor   ] INFO  programArgs: --p-feature 2 --p-filter 2 --p-grid 2 --p-signal 2 --p-sink 3 --p-source 1
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  
+programArgs preview: --p-feature 2 --p-filter 2 --p-grid 2 --p-signal 2 --p-sink 3 --p-source 1
+2026-03-09 19:35:44 [DS2.DryRun     ] INFO  
+Dry-run complete. No changes applied.
