@@ -1,0 +1,36 @@
+# 实现过程
+
+## step1：相关指标注册
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│                    全部指标验证通过                                    │
+│                                                                      │
+│  指标                           │ 数值              │ 状态           │
+│  ─────────────────────────────┼─────────────────┼──────────────   │
+│  l2_hit_rate                    │ avg = 3.4%        │ ✅ 正常        │
+│  l2_occupancy                   │ 100%              │ ✅ 缓存已满    │
+│  l3_hit_rate                    │ avg = 99.98%      │ ✅ 正常        │
+│  l3_occupancy                   │ avg = 50%         │ ✅ 正常        │
+│  Sink latency_p99 (自定义)      │ 20~24 微秒        │ ✅ Sink内部耗时│
+│  Source→Sink latency_p99 (原生) │ 286~669 毫秒      │ ✅ 端到端延迟  │
+│  checkpoint 间隔                │ 20000ms           │ ✅ 参数生效    │
+│  buffer-timeout                 │ 50ms              │ ✅ 参数生效    │
+│  watermark-delay                │ 3000ms            │ ✅ 参数生效    │
+└──────────────────────────────────────────────────────────────────────┘
+
+ML Tuner Python 端采集指标的 API 路径确认：
+
+  ① 算子级指标（l2/l3/自定义latency）：
+     GET /jobs/{jid}/vertices/{vid}/subtasks/metrics?get=算子前缀.指标名
+
+  ② 端到端延迟（LatencyMarker）：
+     GET /jobs/{jid}/metrics?get=latency.source_id.{src_vid}.operator_id.{sink_vid}...latency_p99
+
+  ③ 内置吞吐/背压指标：
+     GET /jobs/{jid} → vertices[].metrics (read-records, backpressured-time 等)
+
+  ④ Checkpoint 统计：
+     GET /jobs/{jid}/checkpoints → summary.end_to_end_duration
+
+```
