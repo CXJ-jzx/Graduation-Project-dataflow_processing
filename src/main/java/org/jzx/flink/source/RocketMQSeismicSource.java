@@ -27,6 +27,7 @@ public class RocketMQSeismicSource extends RichParallelSourceFunction<SeismicRec
     private final String topic;
     private final String consumerGroup;
 
+
     // 运行控制
     private volatile boolean running = true;
     private transient DefaultMQPushConsumer consumer;

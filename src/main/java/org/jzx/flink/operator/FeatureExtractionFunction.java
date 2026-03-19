@@ -21,6 +21,10 @@ import org.slf4j.LoggerFactory;
  * - 时间窗口：60 秒
  * - TTL：300 秒
  * - LRU-K：K=2
+ *
+ * ML Tuner 暴露的 Gauge 指标：
+ * - l2_hit_rate:   缓存命中率 [0.0, 1.0]
+ * - l2_occupancy:  缓存占用率 [0.0, 1.0]
  */
 public class FeatureExtractionFunction
         extends KeyedProcessFunction<Integer, SeismicEvent, EventFeature> {
@@ -48,6 +52,11 @@ public class FeatureExtractionFunction
     private transient long coldStartCount;
     private transient long processedCount;
 
+    // >>>>>> ML-TUNER 新增：Gauge 指标值（volatile 保证 Metrics 线程可见性）
+    private transient volatile double l2HitRate;
+    private transient volatile double l2Occupancy;
+    // <<<<<< ML-TUNER 新增
+
     @Override
     public void open(Configuration parameters) throws Exception {
         super.open(parameters);
@@ -57,6 +66,16 @@ public class FeatureExtractionFunction
         anomalyCount = 0;
         coldStartCount = 0;
         processedCount = 0;
+
+        // >>>>>> ML-TUNER 新增：初始化并注册 Gauge 指标
+        l2HitRate = 0.0;
+        l2Occupancy = 0.0;
+
+        getRuntimeContext().getMetricGroup()
+                .gauge("l2_hit_rate", () -> l2HitRate);
+        getRuntimeContext().getMetricGroup()
+                .gauge("l2_occupancy", () -> l2Occupancy);
+        // <<<<<< ML-TUNER 新增
 
         int subtaskIndex = getRuntimeContext().getIndexOfThisSubtask();
         LOG.info("FeatureExtractionFunction subtask {} 已启动, L2缓存配置: 容量={}, 窗口={}s, TTL={}s, K={}",
@@ -122,7 +141,7 @@ public class FeatureExtractionFunction
         history.addEvent(currentTimestamp, event.getPeakAmplitude(), event.getRmsEnergy());
         l2Cache.put(nodeid, history);
 
-        // 更新后重新获取统计量（包含 history.getEventCount();
+        // 更新后重新获取统计量（包含当前事件）
         avgPeakAmplitude = history.getAvgPeakAmplitude();
 
         // ============================
@@ -146,10 +165,15 @@ public class FeatureExtractionFunction
         processedCount++;
 
         // ============================
-        // 6. 定期 TTL 清理 + 日志统计
+        // 6. 定期 TTL 清理 + 日志统计 + Gauge 更新
         // ============================
         if (processedCount % TTL_CLEANUP_INTERVAL == 0) {
             l2Cache.ttlCleanup(currentTimestamp);
+
+            // >>>>>> ML-TUNER 新增：更新 Gauge 指标值
+            l2HitRate = l2Cache.getHitRate();
+            l2Occupancy = l2Cache.getOccupancy();
+            // <<<<<< ML-TUNER 新增
 
             LOG.info("L2缓存统计: {}, 异常数={}, 冷启动数={}",
                     l2Cache.getStats(), anomalyCount, coldStartCount);

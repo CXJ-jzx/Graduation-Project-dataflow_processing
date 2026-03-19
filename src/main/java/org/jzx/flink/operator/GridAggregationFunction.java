@@ -21,6 +21,10 @@ import java.util.Map;
  * 输出策略：
  * 1. 每个网格每 EMIT_INTERVAL_SECONDS 秒输出一次聚合结果
  * 2. 使用 Flink Timer 机制实现定时触发
+ *
+ * ML Tuner 暴露的 Gauge 指标：
+ * - l3_hit_rate:   缓存命中率 [0.0, 1.0]
+ * - l3_occupancy:  缓存占用率 [0.0, 1.0]
  */
 public class GridAggregationFunction
         extends KeyedProcessFunction<String, EventFeature, GridSummary> {
@@ -32,7 +36,7 @@ public class GridAggregationFunction
     private static final int L3_TIME_WINDOW_SECONDS = 60;
     private static final int L3_TTL_SECONDS = 600;
 
-    // 输出间隔（秒）：每个网格每 5 秒输出一次聚合结果
+    // 输出间隔（秒）：每个网格每 1 秒输出一次聚合结果
     private static final int EMIT_INTERVAL_SECONDS = 1;
 
     // TTL 清理间隔
@@ -49,6 +53,11 @@ public class GridAggregationFunction
     private transient long processedCount;
     private transient long emitCount;
 
+    // >>>>>> ML-TUNER 新增：Gauge 指标值
+    private transient volatile double l3HitRate;
+    private transient volatile double l3Occupancy;
+    // <<<<<< ML-TUNER 新增
+
     @Override
     public void open(Configuration parameters) throws Exception {
         super.open(parameters);
@@ -58,6 +67,16 @@ public class GridAggregationFunction
         totalEvents = 0;
         processedCount = 0;
         emitCount = 0;
+
+        // >>>>>> ML-TUNER 新增：初始化并注册 Gauge 指标
+        l3HitRate = 0.0;
+        l3Occupancy = 0.0;
+
+        getRuntimeContext().getMetricGroup()
+                .gauge("l3_hit_rate", () -> l3HitRate);
+        getRuntimeContext().getMetricGroup()
+                .gauge("l3_occupancy", () -> l3Occupancy);
+        // <<<<<< ML-TUNER 新增
 
         // 加载静态网格映射
         loadGridMapping();
@@ -129,9 +148,15 @@ public class GridAggregationFunction
 
         processedCount++;
 
-        // 定期 TTL 清理 + 日志统计
+        // 定期 TTL 清理 + 日志统计 + Gauge 更新
         if (processedCount % TTL_CLEANUP_INTERVAL == 0) {
             l3Cache.ttlCleanup(currentTimestamp);
+
+            // >>>>>> ML-TUNER 新增：更新 Gauge 指标值
+            l3HitRate = l3Cache.getHitRate();
+            l3Occupancy = l3Cache.getOccupancy();
+            // <<<<<< ML-TUNER 新增
+
             LOG.info("L3缓存统计: {}, 已输出 {} 条 GridSummary", l3Cache.getStats(), emitCount);
         }
     }

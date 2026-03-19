@@ -35,9 +35,15 @@ import java.time.Duration;
  *   --p-grid     网格聚合算子并行度（默认 4）
  *   --p-sink     Sink 并行度（默认 2）
  *
+ * ML Tuner 参数（新增）：
+ *   --checkpoint-interval  Checkpoint 间隔毫秒（默认 30000）
+ *   --buffer-timeout       网络 buffer 超时毫秒（默认 100）
+ *   --watermark-delay      Watermark 乱序容忍毫秒（默认 5000）
+ *
  * 示例：
  *   flink run -c org.jzx.SeismicStreamJob myjar.jar \
- *       --p-source 2 --p-filter 6 --p-signal 6 --p-feature 8 --p-grid 4 --p-sink 2
+ *       --p-source 2 --p-filter 6 --p-signal 6 --p-feature 8 --p-grid 4 --p-sink 2 \
+ *       --checkpoint-interval 20000 --buffer-timeout 50 --watermark-delay 3000
  */
 public class SeismicStreamJob {
     private static final Logger LOG = LoggerFactory.getLogger(SeismicStreamJob.class);
@@ -58,6 +64,12 @@ public class SeismicStreamJob {
     private static final int DEFAULT_GRID_P    = 4;
     private static final int DEFAULT_SINK_P    = 2;
 
+    // >>>>>> ML-TUNER 新增：引擎参数默认值
+    private static final int DEFAULT_CHECKPOINT_INTERVAL = 30000;   // ms
+    private static final int DEFAULT_BUFFER_TIMEOUT      = 100;     // ms
+    private static final int DEFAULT_WATERMARK_DELAY     = 5000;    // ms
+    // <<<<<< ML-TUNER 新增
+
     public static void main(String[] args) throws Exception {
         LOG.info("========== 启动 {} ==========", JOB_NAME);
 
@@ -73,8 +85,19 @@ public class SeismicStreamJob {
         int gridP    = params.getInt("p-grid",    DEFAULT_GRID_P);
         int sinkP    = params.getInt("p-sink",    DEFAULT_SINK_P);
 
+        // >>>>>> ML-TUNER 新增：解析引擎参数
+        int checkpointInterval = params.getInt("checkpoint-interval", DEFAULT_CHECKPOINT_INTERVAL);
+        int bufferTimeout      = params.getInt("buffer-timeout",      DEFAULT_BUFFER_TIMEOUT);
+        int watermarkDelay     = params.getInt("watermark-delay",     DEFAULT_WATERMARK_DELAY);
+        // <<<<<< ML-TUNER 新增
+
         LOG.info("并行度配置: source={}, filter={}, signal={}, feature={}, grid={}, sink={}",
                 sourceP, filterP, signalP, featureP, gridP, sinkP);
+
+        // >>>>>> ML-TUNER 新增：日志输出引擎参数
+        LOG.info("引擎参数: checkpointInterval={}ms, bufferTimeout={}ms, watermarkDelay={}ms",
+                checkpointInterval, bufferTimeout, watermarkDelay);
+        // <<<<<< ML-TUNER 新增
 
         // ============================
         // 1. Flink 执行环境配置
@@ -89,11 +112,20 @@ public class SeismicStreamJob {
         // 注册 Protobuf 序列化
         ProtobufSerializerRegistrar.registerAll(env);
 
-        // Checkpoint 配置
-        env.enableCheckpointing(30000);
+        // >>>>>> ML-TUNER 修改：使用参数化的 Checkpoint 间隔（原硬编码 30000）
+        env.enableCheckpointing(checkpointInterval);
+        // <<<<<< ML-TUNER 修改
         env.getCheckpointConfig().setMinPauseBetweenCheckpoints(10000);
         env.getCheckpointConfig().setCheckpointTimeout(60000);
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
+
+        // >>>>>> ML-TUNER 新增：设置网络 buffer 超时
+        env.setBufferTimeout(bufferTimeout);
+        // <<<<<< ML-TUNER 新增
+
+        // >>>>>> ML-TUNER 新增：启用 Flink 原生延迟追踪（Source→Sink 处理时间延迟）
+        env.getConfig().setLatencyTrackingInterval(5000);  // 每5秒注入一次LatencyMarker
+        // <<<<<< ML-TUNER 新增
 
         // 将参数注册到全局配置（算子内可通过 getRuntimeContext 获取）
         env.getConfig().setGlobalJobParameters(params);
@@ -109,10 +141,11 @@ public class SeismicStreamJob {
         // ============================
         // 3. Watermark 分配
         // ============================
+        // >>>>>> ML-TUNER 修改：使用参数化的 watermarkDelay（原硬编码 Duration.ofSeconds(5)）
         DataStream<SeismicRecord> streamWithWatermark = sourceStream
                 .assignTimestampsAndWatermarks(
                         WatermarkStrategy
-                                .<SeismicRecord>forBoundedOutOfOrderness(Duration.ofSeconds(5))
+                                .<SeismicRecord>forBoundedOutOfOrderness(Duration.ofMillis(watermarkDelay))
                                 .withTimestampAssigner(
                                         (SerializableTimestampAssigner<SeismicRecord>)
                                                 (record, ts) -> record.getTimestamp() * 1000L
@@ -120,6 +153,7 @@ public class SeismicStreamJob {
                                 .withIdleness(Duration.ofSeconds(30))
                 )
                 .name("Watermark-Assigner");
+        // <<<<<< ML-TUNER 修改
 
         // ============================
         // 4. 按 nodeid 分区 → 硬件过滤
@@ -183,6 +217,10 @@ public class SeismicStreamJob {
         LOG.info("作业拓扑构建完成，启动执行...");
         LOG.info("各算子并行度: Source={}, Filter={}, Signal={}, Feature={}, Grid={}, Sink={}",
                 sourceP, filterP, signalP, featureP, gridP, sinkP);
+        // >>>>>> ML-TUNER 新增
+        LOG.info("引擎参数确认: checkpoint={}ms, buffer={}ms, watermark={}ms",
+                checkpointInterval, bufferTimeout, watermarkDelay);
+        // <<<<<< ML-TUNER 新增
 
         env.execute(JOB_NAME);
     }

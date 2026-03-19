@@ -147,6 +147,27 @@ public class L3Cache {
         return staticGridMapping.size();
     }
 
+    // >>>>>> ML-TUNER 新增：供 Flink Gauge 指标查询
+
+    /**
+     * 获取缓存命中率 [0.0, 1.0]
+     * ML Tuner 通过 Flink REST API 查询此指标
+     */
+    public double getHitRate() {
+        long total = hitCount + missCount;
+        return total > 0 ? (double) hitCount / total : 0.0;
+    }
+
+    /**
+     * 获取缓存占用率 [0.0, 1.0]
+     * ML Tuner 通过 Flink REST API 查询此指标
+     */
+    public double getOccupancy() {
+        return maxCapacity > 0 ? (double) dynamicCache.size() / maxCapacity : 0.0;
+    }
+
+    // <<<<<< ML-TUNER 新增
+
     /**
      * 获取统计信息
      */

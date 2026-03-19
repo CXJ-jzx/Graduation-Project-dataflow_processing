@@ -175,6 +175,15 @@ public class SeismicProducer0 {
         producer.setSendMsgTimeout(5000);
         producer.start();
         LOG.info("RocketMQ Producer 启动成功，NameServer: {}", NAMESRV_ADDR);
+        // 预检：发送一条测试消息验证 Topic 可用性
+        try {
+            Message testMsg = new Message(TOPIC, "health-check", "ping".getBytes());
+            producer.send(testMsg);
+            LOG.info("Topic [{}] 路由验证通过", TOPIC);
+        } catch (Exception e) {
+            producer.shutdown();
+            throw new RuntimeException("Topic [" + TOPIC + "] 不可用，请先在 Broker 上创建该 Topic", e);
+        }
         return producer;
     }
 
