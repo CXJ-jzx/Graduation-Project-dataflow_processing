@@ -1,0 +1,30 @@
+# 分步执行计划
+
+## Step 1：Producer 差异化上传改造
+- 修改 SeismicProducer.java，加入 uploadIntervalMap + 跳发逻辑
+- 验证：启动 Producer，观察日志确认每轮发送数在 200~2000 间波动
+- 不动任何 Flink 端代码
+
+## Step 2：定义统一缓存接口 IL2Cache
+- 抽取现有 L2Cache 的 get/put/ttlCleanup/统计方法为接口
+- 改造现有 L2Cache 实现该接口（作为 LRU 基线）
+- 验证：原有流程不受影响，跑通一次完整 Job
+
+## Step 3：实现 FIFO / LFU / FA-LRU 三种缓存
+- FIFOCache.java
+- LFUCache.java
+- FALRUCache.java（本文方案）
+- 每实现一个，写单元测试验证基本正确性
+
+## Step 4：FeatureExtractionFunction 集成策略切换 + 指标埋点
+- 通过启动参数 `--cache-strategy` 切换缓存实现
+- 添加分层命中率统计（T1/T2/T3/T4）
+- 添加逐周期日志输出
+- 验证：分别用 4 种策略各跑一次短时间 Job，确认日志正常输出
+
+## Step 5：执行 4 组对比实验 + 采集数据
+- E1(FIFO) → E2(LRU) → E3(LFU) → E4(FA-LRU)
+- 每组 7 分钟，提取日志中的命中率指标
+
+## Step 6：数据分析与图表
+- 汇总 4 组数据，绘制对比图表
