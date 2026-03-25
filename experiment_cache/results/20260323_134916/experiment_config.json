@@ -1,0 +1,29 @@
+{
+  "timestamp": "20260323_134916",
+  "strategies": [
+    "fifo",
+    "lru",
+    "lru-k",
+    "lfu",
+    "fa-lru",
+    "w-tinylfu"
+  ],
+  "warmup_seconds": 10,
+  "collect_seconds": 20,
+  "cooldown_seconds": 5,
+  "flink_job_params": {
+    "p-source": 2,
+    "p-filter": 4,
+    "p-signal": 4,
+    "p-feature": 4,
+    "p-grid": 4,
+    "p-sink": 2
+  },
+  "cluster_nodes": [
+    "node01",
+    "node02",
+    "node03"
+  ],
+  "local_jar": "E:\\Desktop\\bs_code\\flink-rocketmq-demo\\target\\flink-rocketmq-demo-1.0-SNAPSHOT.jar",
+  "remote_jar": "/opt/flink_jobs/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
+}

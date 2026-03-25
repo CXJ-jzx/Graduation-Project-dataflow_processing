@@ -20,17 +20,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 地震数据生产者 — 模拟 2000 节点 × 1Hz 持续采集
+ * 地震数据生产者 — 模拟 2000 节点 × 差异化频率持续采集
  *
  * 设计要点：
- * 1. 20 个工作线程，每个线程负责 ~100 个节点
+ * 1. 20 个工作线程，每个线程负责动态分配的节点
  * 2. 异步发送，Semaphore 控制在途消息数
  * 3. 每轮精确控速 1 秒（1Hz 采样率）
  * 4. 文件读完后自动重置，持续循环发送
  * 5. 支持 Ctrl+C 优雅停机
+ * 6. 差异化上传频率：T1(1s)/T2(2s)/T3(3s)/T4(5s)
+ * 7. 每轮次内 shuffle 打乱发送顺序，T1/T2/T3/T4 交替到达
  */
 public class SeismicProducer {
-    private static final Logger LOG = LoggerFactory.getLogger(SeismicProducer0.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SeismicProducer.class);
 
     // RocketMQ 配置
     private static final String NAMESRV_ADDR = "192.168.56.151:9876";
@@ -68,19 +70,25 @@ public class SeismicProducer {
     // 文件读取器映射
     private static Map<Integer, RandomAccessFile> fileReaders = new ConcurrentHashMap<>();
 
-    // 节点分组
-    private static List<List<Integer>> nodeGroups;
-
     // 循环计数
     private static volatile int cycle = 1;
 
     // 优雅停机标志
     private static volatile boolean running = true;
 
+    // 差异化上传频率映射：nodeId → 上传间隔（秒/轮）
+    private static Map<Integer, Integer> uploadIntervalMap = new HashMap<>();
+
+    // 随机数生成器（固定种子保证可复现）
+    private static final Random SHUFFLE_RANDOM = new Random(42L);
+
+    // 调试模式：前 N 轮打印 shuffle 详情（设为 0 关闭）
+    private static final int DEBUG_SHUFFLE_ROUNDS = 5;
+
     public static void main(String[] args) {
         DefaultMQProducer producer = null;
         try {
-            LOG.info("========== 启动 SeismicProducer（2000节点 × 1Hz 持续模式）==========");
+            LOG.info("========== 启动 SeismicProducer（2000节点 × 差异化频率 × 轮次内随机发送）==========");
             LOG.info("提示：按 Ctrl+C 优雅停止");
 
             // 注册 Shutdown Hook
@@ -100,10 +108,8 @@ public class SeismicProducer {
             LOG.info("成功打开 {} 个 .seis 文件，对应 {} 个节点",
                     seisFiles.size(), fileReaders.size());
 
-            // Step 4: 将节点分组分配给线程
-            nodeGroups = partitionNodes(new ArrayList<>(fileReaders.keySet()), THREAD_POOL_SIZE);
-            LOG.info("节点分组完成：{} 个线程，每组约 {} 个节点",
-                    nodeGroups.size(), fileReaders.size() / THREAD_POOL_SIZE);
+            // Step 4: 初始化差异化上传频率
+            initUploadIntervals();
 
             // Step 5: 创建线程池
             ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
@@ -116,14 +122,66 @@ public class SeismicProducer {
                 long roundStartTime = System.currentTimeMillis();
 
                 final DefaultMQProducer prod = producer;
+                final int currentRound = round;
                 AtomicInteger roundSuccess = new AtomicInteger(0);
                 AtomicInteger roundFail = new AtomicInteger(0);
+                AtomicInteger roundSkipped = new AtomicInteger(0);
+
+                // ===== 每轮收集本轮应发送的节点 =====
+                List<Integer> thisRoundNodes = buildThisRoundNodes(currentRound, roundSkipped);
+
+                // 所有节点都读到文件末尾且没有跳过的，说明该重置了
+                if (thisRoundNodes.isEmpty() && roundSkipped.get() == 0) {
+                    resetAllFiles();
+                    LOG.info("========== 循环 {} 完成（共 {} 轮），重置文件，开始循环 {} / 总发送 {} ==========",
+                            cycle, round - 1, cycle + 1, totalMessagesSent.get());
+                    cycle++;
+                    round++;
+                    continue;
+                }
+
+                // ===== 调试日志：shuffle 前 =====
+                if (currentRound <= DEBUG_SHUFFLE_ROUNDS && thisRoundNodes.size() > 10) {
+                    // 统计本轮各层级节点数
+                    int t1 = 0, t2 = 0, t3 = 0, t4 = 0;
+                    for (int nid : thisRoundNodes) {
+                        int interval = uploadIntervalMap.getOrDefault(nid, 1);
+                        switch (interval) {
+                            case 1: t1++; break;
+                            case 2: t2++; break;
+                            case 3: t3++; break;
+                            case 5: t4++; break;
+                        }
+                    }
+                    LOG.info("[轮次{}] 本轮应发送: {} 个节点 (T1={}, T2={}, T3={}, T4={})",
+                            currentRound, thisRoundNodes.size(), t1, t2, t3, t4);
+                    LOG.info("[轮次{}] shuffle 前前10个: {} (层级: {})",
+                            currentRound,
+                            thisRoundNodes.subList(0, Math.min(10, thisRoundNodes.size())),
+                            getTierLabels(thisRoundNodes.subList(0, Math.min(10, thisRoundNodes.size()))));
+                }
+
+                // ===== shuffle：打乱本轮发送顺序 =====
+                Collections.shuffle(thisRoundNodes, SHUFFLE_RANDOM);
+
+                // ===== 调试日志：shuffle 后 =====
+                if (currentRound <= DEBUG_SHUFFLE_ROUNDS && thisRoundNodes.size() > 10) {
+                    LOG.info("[轮次{}] shuffle 后前10个: {} (层级: {})",
+                            currentRound,
+                            thisRoundNodes.subList(0, Math.min(10, thisRoundNodes.size())),
+                            getTierLabels(thisRoundNodes.subList(0, Math.min(10, thisRoundNodes.size()))));
+                }
+
+                // ===== 将打乱后的节点分组分配给线程池 =====
+                List<List<Integer>> thisRoundGroups =
+                        partitionNodes(thisRoundNodes, THREAD_POOL_SIZE);
 
                 List<Future<?>> futures = new ArrayList<>();
-                for (List<Integer> group : nodeGroups) {
+                for (List<Integer> group : thisRoundGroups) {
                     futures.add(executor.submit(() -> {
                         for (int nodeid : group) {
                             if (!running) return;
+
                             RandomAccessFile raf = fileReaders.get(nodeid);
                             if (raf == null) continue;
 
@@ -149,9 +207,10 @@ public class SeismicProducer {
                 }
 
                 int success = roundSuccess.get();
+                int skipped = roundSkipped.get();
 
-                // 所有节点都读到文件末尾，重置继续
-                if (success == 0) {
+                // 本轮应发送但全部读到末尾
+                if (success == 0 && thisRoundNodes.size() > 0) {
                     resetAllFiles();
                     LOG.info("========== 循环 {} 完成（共 {} 轮），重置文件，开始循环 {} / 总发送 {} ==========",
                             cycle, round - 1, cycle + 1, totalMessagesSent.get());
@@ -162,10 +221,10 @@ public class SeismicProducer {
 
                 long roundDuration = System.currentTimeMillis() - roundStartTime;
 
-                // 每 50 轮或每个循环的前 3 轮打印日志
-                if (round % 50 == 0 || round <= 3) {
-                    LOG.info("[循环{} | 轮次{}] 成功 {} / 失败 {} / 耗时 {} ms / 在途 {} / 总发送 {}",
-                            cycle, round, success, roundFail.get(), roundDuration,
+                // 每 10 轮或前 5 轮打印日志
+                if (round % 10 == 0 || round <= DEBUG_SHUFFLE_ROUNDS) {
+                    LOG.info("[循环{} | 轮次{}] 发送 {} / 跳过 {} / 失败 {} / 耗时 {} ms / 在途 {} / 总发送 {}",
+                            cycle, round, success, skipped, roundFail.get(), roundDuration,
                             MAX_IN_FLIGHT - inflightSemaphore.availablePermits(),
                             totalMessagesSent.get());
                 }
@@ -203,6 +262,122 @@ public class SeismicProducer {
     }
 
     /**
+     * 构建本轮应发送的节点列表
+     *
+     * 根据每个节点的上传间隔，判断当前轮次是否应发送。
+     * 收集后由调用方 shuffle 打乱顺序。
+     *
+     * @param currentRound 当前轮次号
+     * @param roundSkipped 跳过计数器（输出参数）
+     * @return 本轮应发送的 nodeId 列表（未 shuffle）
+     */
+    private static List<Integer> buildThisRoundNodes(int currentRound, AtomicInteger roundSkipped) {
+        List<Integer> result = new ArrayList<>();
+        for (Map.Entry<Integer, Integer> entry : uploadIntervalMap.entrySet()) {
+            int nodeid = entry.getKey();
+            int interval = entry.getValue();
+            if (currentRound % interval == 0) {
+                result.add(nodeid);
+            } else {
+                roundSkipped.incrementAndGet();
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 获取节点列表对应的层级标签（调试用）
+     */
+    private static List<String> getTierLabels(List<Integer> nodeIds) {
+        List<String> labels = new ArrayList<>();
+        for (int nid : nodeIds) {
+            int interval = uploadIntervalMap.getOrDefault(nid, 0);
+            switch (interval) {
+                case 1: labels.add("T1"); break;
+                case 2: labels.add("T2"); break;
+                case 3: labels.add("T3"); break;
+                case 5: labels.add("T4"); break;
+                default: labels.add("T?"); break;
+            }
+        }
+        return labels;
+    }
+
+    /**
+     * 初始化差异化上传频率：按节点ID排序后分为 T1/T2/T3/T4 四个层级
+     *
+     * T1(前200个):  每轮上传，间隔1s  — 模拟近炮点高频采集
+     * T2(201~600):  每2轮上传，间隔2s — 模拟中距离常规采集
+     * T3(601~1200): 每3轮上传，间隔3s — 模拟远端低频采集
+     * T4(1201~2000):每5轮上传，间隔5s — 模拟边缘节能模式
+     */
+    private static void initUploadIntervals() {
+        List<Integer> sortedNodeIds = new ArrayList<>(fileReaders.keySet());
+        Collections.sort(sortedNodeIds);
+
+        for (int i = 0; i < sortedNodeIds.size(); i++) {
+            int interval;
+            if (i < 200) interval = 1;
+            else if (i < 600) interval = 2;
+            else if (i < 1200) interval = 3;
+            else interval = 5;
+            uploadIntervalMap.put(sortedNodeIds.get(i), interval);
+        }
+
+        long t1 = uploadIntervalMap.values().stream().filter(v -> v == 1).count();
+        long t2 = uploadIntervalMap.values().stream().filter(v -> v == 2).count();
+        long t3 = uploadIntervalMap.values().stream().filter(v -> v == 3).count();
+        long t4 = uploadIntervalMap.values().stream().filter(v -> v == 5).count();
+        LOG.info("差异化上传频率分配完成: T1(1s)={}, T2(2s)={}, T3(3s)={}, T4(5s)={}", t1, t2, t3, t4);
+        LOG.info("轮次内随机发送已启用（seed=42，结果可复现）");
+
+        // 打印各层级的 nodeId 范围
+        LOG.info("T1 nodeId 范围: [{}, {}]", sortedNodeIds.get(0), sortedNodeIds.get(Math.min(199, sortedNodeIds.size() - 1)));
+        if (sortedNodeIds.size() > 200)
+            LOG.info("T2 nodeId 范围: [{}, {}]", sortedNodeIds.get(200), sortedNodeIds.get(Math.min(599, sortedNodeIds.size() - 1)));
+        if (sortedNodeIds.size() > 600)
+            LOG.info("T3 nodeId 范围: [{}, {}]", sortedNodeIds.get(600), sortedNodeIds.get(Math.min(1199, sortedNodeIds.size() - 1)));
+        if (sortedNodeIds.size() > 1200)
+            LOG.info("T4 nodeId 范围: [{}, {}]", sortedNodeIds.get(1200), sortedNodeIds.get(sortedNodeIds.size() - 1));
+
+        // 打印预期每轮发送数量
+        LOG.info("===== 预期每轮发送数量 =====");
+        for (int r = 1; r <= 10; r++) {
+            int count = 0;
+            int ct1 = 0, ct2 = 0, ct3 = 0, ct4 = 0;
+            for (Map.Entry<Integer, Integer> e : uploadIntervalMap.entrySet()) {
+                if (r % e.getValue() == 0) {
+                    count++;
+                    switch (e.getValue()) {
+                        case 1: ct1++; break;
+                        case 2: ct2++; break;
+                        case 3: ct3++; break;
+                        case 5: ct4++; break;
+                    }
+                }
+            }
+            LOG.info("  轮次{}: 总={}, T1={}, T2={}, T3={}, T4={}", r, count, ct1, ct2, ct3, ct4);
+        }
+        LOG.info("============================");
+    }
+
+    /**
+     * 将节点列表均匀分成 N 组
+     */
+    private static List<List<Integer>> partitionNodes(List<Integer> nodeIds, int groupCount) {
+        int actualGroups = Math.min(groupCount, nodeIds.size());
+        List<List<Integer>> groups = new ArrayList<>();
+        for (int i = 0; i < actualGroups; i++) {
+            groups.add(new ArrayList<>());
+        }
+        for (int i = 0; i < nodeIds.size(); i++) {
+            groups.get(i % actualGroups).add(nodeIds.get(i));
+        }
+        groups.removeIf(List::isEmpty);
+        return groups;
+    }
+
+    /**
      * 重置所有文件读取器到数据起始位置
      */
     private static void resetAllFiles() {
@@ -217,24 +392,10 @@ public class SeismicProducer {
     }
 
     /**
-     * 将节点列表均匀分成 N 组
-     */
-    private static List<List<Integer>> partitionNodes(List<Integer> nodeIds, int groupCount) {
-        List<List<Integer>> groups = new ArrayList<>();
-        for (int i = 0; i < groupCount; i++) {
-            groups.add(new ArrayList<>());
-        }
-        for (int i = 0; i < nodeIds.size(); i++) {
-            groups.get(i % groupCount).add(nodeIds.get(i));
-        }
-        groups.removeIf(List::isEmpty);
-        return groups;
-    }
-
-    /**
      * 异步发送单个节点的一个数据块
      */
-    private static boolean sendOneBlockAsync(int nodeid, RandomAccessFile raf, DefaultMQProducer producer) {
+    private static boolean sendOneBlockAsync(int nodeid, RandomAccessFile raf,
+                                             DefaultMQProducer producer) {
         try {
             byte[] blockBuffer = new byte[BLOCK_SIZE];
 
@@ -410,7 +571,7 @@ public class SeismicProducer {
         LOG.info("发送消息总数: {}", totalMessages);
         LOG.info("发送字节总数: {} MB", String.format("%.2f", totalBytes / 1024.0 / 1024.0));
         LOG.info("实际吞吐率: {} 条/秒", duration > 0 ? totalMessages / duration : 0);
-        LOG.info("目标吞吐率: 2000 条/秒");
+        LOG.info("目标吞吐率: ~760 条/秒（差异化上传模式）");
         LOG.info("错误数: {} （错误率: {}%）",
                 errors, String.format("%.2f", totalMessages > 0 ? errors * 100.0 / (totalMessages + errors) : 0));
         LOG.info("==================================================");

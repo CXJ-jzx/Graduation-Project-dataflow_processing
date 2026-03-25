@@ -1,0 +1,118 @@
+{
+  "FA-LRU": {
+    "T1a": {
+      "phase1": 100.0,
+      "phase2": 100.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 6
+    },
+    "T1b": {
+      "phase1": 100.0,
+      "phase2": 100.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 6
+    },
+    "T2": {
+      "phase1": 40.6,
+      "phase2": 42.0,
+      "drop": -1.4,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 6
+    },
+    "T3": {
+      "phase1": 0.0,
+      "phase2": 0.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 6
+    },
+    "T4a": {
+      "phase1": 19.0,
+      "phase2": 54.3,
+      "drop": -35.3,
+      "recovery": "恢复",
+      "phase1_count": 4,
+      "phase2_count": 6
+    },
+    "T4b": {
+      "phase1": 0.0,
+      "phase2": 0.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 6
+    },
+    "overall": {
+      "phase1": 34.8,
+      "phase2": 31.8,
+      "drop": 3.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 6
+    }
+  },
+  "LFU": {
+    "T1a": {
+      "phase1": 100.0,
+      "phase2": 100.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 5
+    },
+    "T1b": {
+      "phase1": 100.0,
+      "phase2": 100.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 5
+    },
+    "T2": {
+      "phase1": 42.9,
+      "phase2": 43.5,
+      "drop": -0.7,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 5
+    },
+    "T3": {
+      "phase1": 0.0,
+      "phase2": 0.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 5
+    },
+    "T4a": {
+      "phase1": 12.3,
+      "phase2": 57.5,
+      "drop": -45.2,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 5
+    },
+    "T4b": {
+      "phase1": 0.0,
+      "phase2": 0.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 5
+    },
+    "overall": {
+      "phase1": 35.2,
+      "phase2": 36.1,
+      "drop": -0.9,
+      "recovery": "未恢复",
+      "phase1_count": 4,
+      "phase2_count": 5
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "experiment": "stagnation_v4",
+  "timestamp": "20260324_111211",
+  "strategies": [
+    "lfu",
+    "fa-lru",
+    "w-tinylfu",
+    "lru-k"
+  ],
+  "cache_capacity": 120,
+  "warmup_seconds": 30,
+  "phase1_seconds": 60,
+  "phase2_seconds": 120,
+  "switch_time_sec": 90,
+  "drift_node_count": 100,
+  "stagnation_mode": true,
+  "sub_groups": [
+    "T1a",
+    "T1b",
+    "T2",
+    "T3",
+    "T4a",
+    "T4b"
+  ],
+  "phase_switch_offset": 85,
+  "metric_focus": "T1a_and_T4a_incremental_hit_rate"
+}

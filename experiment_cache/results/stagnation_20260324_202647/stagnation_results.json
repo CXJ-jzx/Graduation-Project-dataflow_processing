@@ -1,0 +1,176 @@
+{
+  "LFU": {
+    "T1a": {
+      "phase1": 100.0,
+      "phase2": 76.0,
+      "drop": 24.0,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T1b": {
+      "phase1": 100.0,
+      "phase2": 100.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T2": {
+      "phase1": 31.2,
+      "phase2": 21.8,
+      "drop": 9.4,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T3": {
+      "phase1": 3.1,
+      "phase2": 0.1,
+      "drop": 3.0,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T4a": {
+      "phase1": 8.9,
+      "phase2": 90.3,
+      "drop": -81.4,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T4b": {
+      "phase1": 0.0,
+      "phase2": 0.0,
+      "drop": 0.0,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "overall": {
+      "phase1": 35.3,
+      "phase2": 32.5,
+      "drop": 2.7,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    }
+  },
+  "LRU-K": {
+    "T1a": {
+      "phase1": 92.6,
+      "phase2": 60.5,
+      "drop": 32.1,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 17
+    },
+    "T1b": {
+      "phase1": 88.8,
+      "phase2": 93.8,
+      "drop": -5.0,
+      "recovery": "恢复",
+      "phase1_count": 9,
+      "phase2_count": 17
+    },
+    "T2": {
+      "phase1": 28.2,
+      "phase2": 28.4,
+      "drop": -0.2,
+      "recovery": "恢复",
+      "phase1_count": 9,
+      "phase2_count": 17
+    },
+    "T3": {
+      "phase1": 14.0,
+      "phase2": 15.1,
+      "drop": -1.1,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 17
+    },
+    "T4a": {
+      "phase1": 9.5,
+      "phase2": 46.7,
+      "drop": -37.2,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 17
+    },
+    "T4b": {
+      "phase1": 9.6,
+      "phase2": 5.1,
+      "drop": 4.5,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 17
+    },
+    "overall": {
+      "phase1": 36.6,
+      "phase2": 32.3,
+      "drop": 4.3,
+      "recovery": "恢复",
+      "phase1_count": 9,
+      "phase2_count": 17
+    }
+  },
+  "W-TINYLFU": {
+    "T1a": {
+      "phase1": 94.1,
+      "phase2": 7.4,
+      "drop": 86.6,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T1b": {
+      "phase1": 98.9,
+      "phase2": 99.2,
+      "drop": -0.3,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T2": {
+      "phase1": 38.9,
+      "phase2": 30.4,
+      "drop": 8.6,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T3": {
+      "phase1": 8.9,
+      "phase2": 6.3,
+      "drop": 2.6,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T4a": {
+      "phase1": 9.3,
+      "phase2": 84.8,
+      "drop": -75.5,
+      "recovery": "恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "T4b": {
+      "phase1": 1.2,
+      "phase2": 1.2,
+      "drop": 0.1,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    },
+    "overall": {
+      "phase1": 37.7,
+      "phase2": 34.1,
+      "drop": 3.6,
+      "recovery": "未恢复",
+      "phase1_count": 9,
+      "phase2_count": 16
+    }
+  }
+}

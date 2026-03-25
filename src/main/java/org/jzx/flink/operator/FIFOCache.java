@@ -5,51 +5,34 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * L2 缓存 — LRU 策略实现（对比实验中的 S2 基线）
+ * L2 缓存 — FIFO 策略实现（对比实验 S1）
  *
- * 特性：
- * 1. 基于 LinkedHashMap 实现 LRU 淘汰
- * 2. 支持 LRU-K（K=2）：需被访问 2 次以上才视为热点
- * 3. 支持 TTL 过期清理
- * 4. 实现 IL2Cache 统一接口，可被 FeatureExtractionFunction 通过参数切换
+ * 淘汰规则：先进先出，最早插入的条目最先被淘汰。
+ * get() 不改变条目位置（accessOrder=false）。
  */
-public class L2Cache implements IL2Cache {
+public class FIFOCache implements IL2Cache {
 
-    // LRU 容量
     private final int maxCapacity;
-
-    // TTL（秒）
     private final int ttlSeconds;
-
-    // 时间窗口（秒）
     private final int timeWindowSeconds;
-
-    // LRU-K 参数
     private final int lruK;
 
-    // 底层存储：accessOrder=true 表示按访问顺序排列（LRU）
+    // accessOrder=false：按插入顺序排列（FIFO）
     private final LinkedHashMap<Integer, NodeHistory> cache;
 
-    // 统计
     private long hitCount = 0;
     private long missCount = 0;
     private long evictCount = 0;
     private long ttlEvictCount = 0;
 
-    /**
-     * @param maxCapacity       最大容量（节点数）
-     * @param timeWindowSeconds 时间窗口（秒），用于清理旧事件
-     * @param ttlSeconds        TTL（秒），超过未访问则清除
-     * @param lruK              LRU-K 参数
-     */
-    public L2Cache(int maxCapacity, int timeWindowSeconds, int ttlSeconds, int lruK) {
+    public FIFOCache(int maxCapacity, int timeWindowSeconds, int ttlSeconds, int lruK) {
         this.maxCapacity = maxCapacity;
         this.timeWindowSeconds = timeWindowSeconds;
         this.ttlSeconds = ttlSeconds;
         this.lruK = lruK;
 
-        // accessOrder=true：按访问顺序排列，最近访问的在末尾
-        this.cache = new LinkedHashMap<Integer, NodeHistory>(maxCapacity, 0.75f, true) {
+        // accessOrder=false：get() 不改变位置，纯插入顺序
+        this.cache = new LinkedHashMap<Integer, NodeHistory>(maxCapacity, 0.75f, false) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<Integer, NodeHistory> eldest) {
                 if (size() > maxCapacity) {
@@ -121,30 +104,22 @@ public class L2Cache implements IL2Cache {
     }
 
     @Override
-    public long getHitCount() {
-        return hitCount;
-    }
+    public long getHitCount() { return hitCount; }
 
     @Override
-    public long getMissCount() {
-        return missCount;
-    }
+    public long getMissCount() { return missCount; }
 
     @Override
-    public long getEvictCount() {
-        return evictCount;
-    }
+    public long getEvictCount() { return evictCount; }
 
     @Override
-    public long getTtlEvictCount() {
-        return ttlEvictCount;
-    }
+    public long getTtlEvictCount() { return ttlEvictCount; }
 
     @Override
     public String getStats() {
         long total = hitCount + missCount;
         double hitRate = total > 0 ? (double) hitCount / total * 100 : 0;
-        return String.format("strategy=LRU, size=%d, hit=%d, miss=%d, hitRate=%.2f%%, lruEvict=%d, ttlEvict=%d",
+        return String.format("strategy=FIFO, size=%d, hit=%d, miss=%d, hitRate=%.2f%%, evict=%d, ttlEvict=%d",
                 cache.size(), hitCount, missCount, hitRate, evictCount, ttlEvictCount);
     }
 }

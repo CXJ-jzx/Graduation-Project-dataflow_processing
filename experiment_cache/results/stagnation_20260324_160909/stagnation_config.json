@@ -1,0 +1,26 @@
+{
+  "experiment": "stagnation_v4",
+  "quick_mode": true,
+  "timestamp": "20260324_160909",
+  "strategies": [
+    "lfu",
+    "w-tinylfu"
+  ],
+  "cache_capacity": 120,
+  "warmup_seconds": 20,
+  "phase1_seconds": 30,
+  "phase2_seconds": 40,
+  "producer_switch_time": 50,
+  "producer_duration": 120,
+  "phase_switch_offset": 45,
+  "stagnation_mode": true,
+  "sub_groups": [
+    "T1a",
+    "T1b",
+    "T2",
+    "T3",
+    "T4a",
+    "T4b"
+  ],
+  "cluster_restart": true
+}
