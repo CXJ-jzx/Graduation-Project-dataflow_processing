@@ -17,4 +17,6 @@ message SeismicEvent {
   int32  peak_amplitude   = 9;   // 峰值振幅
   double rms_energy       = 10;  // RMS 能量
   repeated int32 signal_samples = 11; // 信号段原始采样点（可选保留）
+  int64 source_processing_time_ms = 12; // 从SeismicRecord透传
+
 }

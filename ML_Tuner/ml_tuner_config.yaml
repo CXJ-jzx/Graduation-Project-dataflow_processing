@@ -1,10 +1,3 @@
-# ==============================================================
-# ML Tuner 配置文件 (修正版 - 所有键名与代码匹配)
-# ==============================================================
-
-# ========================
-# Flink 集群连接
-# ========================
 flink:
   rest_url: "http://192.168.56.151:8081"
   job_name: "Seismic-Stream-Job"
@@ -13,88 +6,57 @@ flink:
   main_class: "org.jzx.SeismicStreamJob"
   savepoint_dir: "hdfs://node01:9000/flink/savepoints"
 
-# ========================
-# SSH 连接（仅用于 JAR 上传）
-# ========================
 ssh:
   host: "192.168.56.151"
   port: 22
   user: "root"
   password: "123456"
 
-# ========================
-# 调优参数空间 (3维)
-# ========================
 parameter_space:
   checkpoint_interval:
     min: 5000
     max: 120000
     step: 5000
     default: 30000
-    unit: "ms"
     cli_arg: "checkpoint-interval"
   buffer_timeout:
     min: 1
     max: 200
     step: 10
     default: 100
-    unit: "ms"
     cli_arg: "buffer-timeout"
   watermark_delay:
     min: 1000
     max: 30000
     step: 1000
     default: 5000
-    unit: "ms"
     cli_arg: "watermark-delay"
 
-# ========================
-# 指标采集配置
-# ========================
 metrics:
-  operator_names:
-    source: "RocketMQ-Source"
-    filter: "Hardware-Filter"
-    signal: "Signal-Extraction"
-    feature: "Feature-Extraction"
-    grid: "Grid-Aggregation"
-    grid_sink: "GridSummary-Sink"
-    event_sink: "EventFeature-Sink"
-
-  gauge_prefixes:
-    feature: "Feature-Extraction"
-    grid: "Grid-Aggregation"
-    event_sink: "Sink__EventFeature-Sink"
-
   collection:
     window_seconds: 300
     interval_seconds: 30
     sample_count: 10
 
-# ========================
-# 特征归一化范围
-# ========================
 feature_ranges:
-  avg_input_rate:       [0, 500000]
-  peak_input_rate:      [0, 1000000]
-  input_cv:             [0, 2.0]
-  active_node_count:    [0, 2000]
-  avg_backlog:          [0, 1000000]
-  avg_busy_ratio:       [0, 1.0]
-  max_busy_ratio:       [0, 1.0]
-  total_parallelism:    [1, 50]
-  heap_usage_ratio:     [0, 1.0]
-  latency_p99:          [0, 10000]
-  checkpoint_avg_dur:   [0, 60000]
-  backpressure_ratio:   [0, 1.0]
-  l2_hit_rate:          [0, 1.0]
-  l2_occupancy:         [0, 1.0]
-  l3_hit_rate:          [0, 1.0]
-  l3_occupancy:         [0, 1.0]
+  avg_input_rate: [0, 500000]
+  peak_input_rate: [0, 1000000]
+  input_cv: [0, 2.0]
+  active_node_count: [0, 2000]
+  avg_backlog: [0, 1000000]
+  avg_busy_ratio: [0, 1.0]
+  max_busy_ratio: [0, 1.0]
+  total_parallelism: [1, 50]
+  heap_usage_ratio: [0, 1.0]
+  latency_p99: [0, 10000]
+  checkpoint_avg_dur: [0, 60000]
+  backpressure_ratio: [0, 1.0]
+  l2_hit_rate: [0, 1.0]
+  l2_occupancy: [0, 1.0]
+  l3_hit_rate: [0, 1.0]
+  l3_occupancy: [0, 1.0]
+  e2e_latency_p99_ms: [0, 2000]
 
-# ========================
-# 目标函数
-# ========================
 objective:
   weights:
     latency: 0.40
@@ -104,18 +66,12 @@ objective:
   target_utilization: 0.7
   sla_latency_ms: 5000
 
-# ========================
-# 约束条件
-# ========================
 constraints:
   max_latency_p99_ms: 5000
   max_backpressure: 0.80
 
-# ========================
-# 代理模型
-# ========================
 surrogate:
-  warm_up_observations: 10
+  warm_up_observations: 8
   max_observations: 200
   gp:
     n_restarts_optimizer: 5
@@ -126,9 +82,6 @@ surrogate:
     max_depth: 10
     min_samples_leaf: 2
 
-# ========================
-# 贝叶斯优化
-# ========================
 optimizer:
   n_candidates: 200
   candidate_mix:
@@ -136,34 +89,21 @@ optimizer:
     best_neighbor_ratio: 0.20
     top5_neighbor_ratio: 0.10
   neighbor_range: 0.15
-  xi_initial: 0.3
+  xi_initial: 0.2
   xi_final: 0.01
   xi_decay_rounds: 15
   top_k_select: 3
 
-# ========================
-# DS2 协调
-# ★ 键名 "ds2" — 匹配 JobExecutor 中 cfg.get('ds2', {})
-# ========================
 ds2:
   pause_signal_file: "E:/Desktop/bs_code/flink-rocketmq-demo/DS2/ds2_pause.signal"
   lock_file: "E:/Desktop/bs_code/flink-rocketmq-demo/DS2/ds2_flink.lock"
   lock_timeout_seconds: 30
 
-# ========================
-# 超时配置
-# ★ 键名 "timeouts" — 匹配 JobExecutor 中 cfg.get('timeouts', {})
-# ========================
 timeouts:
   savepoint: 60
   cancel: 60
   submit: 120
 
-# ========================
-# 调度配置
-# ★ 将 safety 中的字段合并到 scheduler
-# ★ 使用 max_rounds（而非 total_rounds）— 匹配 main.py
-# ========================
 scheduler:
   max_rounds: 30
   warm_up_rounds: 8
@@ -173,27 +113,32 @@ scheduler:
   warm_up_after_apply_seconds: 90
   health_check_seconds: 60
 
-# ========================
-# 安全屏障（保留，但关键字段已复制到 scheduler）
-# ========================
-safety:
-  efficiency_threshold: 0.08
-  max_consecutive_failures: 3
-  rollback_on_constraint_violation: true
-  warm_up_after_apply_seconds: 90
-  health_check_seconds: 60
-
-# ========================
-# 存储路径
-# ★ 键名 "storage.csv_path" — 匹配 main.py 中的 _cfg_first
-# ========================
 storage:
   csv_path: "E:/Desktop/bs_code/flink-rocketmq-demo/ML_Tuner/data/observations.csv"
   data_dir: "E:/Desktop/bs_code/flink-rocketmq-demo/ML_Tuner/data"
   log_dir: "E:/Desktop/bs_code/flink-rocketmq-demo/ML_Tuner/logs"
 
-# ========================
-# 日志
-# ========================
+rocketmq:
+  home: "/usr/local/rocketmq"
+  cluster: "RaftCluster"
+  consumer_group_prefix: "seismic-flink-consumer-group"
+  deregister_wait_seconds: 15
+  cleanup_old_consumer_group: true
+
+producer:
+  enabled: true
+  main_class: "org.jzx.producer.SeismicProducer"
+  local_jar: "E:/Desktop/bs_code/flink-rocketmq-demo/target/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
+  work_dir: "E:/Desktop/bs_code/flink-rocketmq-demo"
+
+safety:
+  efficiency_threshold: 0.02
+  et_min_observations: 12
+  max_consecutive_failures: 3
+  rollback_on_constraint_violation: true
+  warm_up_after_apply_seconds: 90
+  health_check_seconds: 60
+
+
 logging:
   level: "INFO"

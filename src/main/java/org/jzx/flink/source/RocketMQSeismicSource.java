@@ -18,6 +18,11 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * 自定义 RocketMQ Source
  * 从 seismic-raw Topic 消费消息，反序列化为 SeismicRecord Protobuf 对象
+ *
+ * v2 修改:
+ *   - 新增 consumeFromLatest 参数，控制消费起始位置
+ *   - 全新启动时从最新位置消费，避免积压导致指标失真
+ *   - Savepoint 恢复时从上次位置继续（CONSUME_FROM_LAST_OFFSET）
  */
 public class RocketMQSeismicSource extends RichParallelSourceFunction<SeismicRecord> {
     private static final Logger LOG = LoggerFactory.getLogger(RocketMQSeismicSource.class);
@@ -27,6 +32,8 @@ public class RocketMQSeismicSource extends RichParallelSourceFunction<SeismicRec
     private final String topic;
     private final String consumerGroup;
 
+    // ★ 新增：是否从最新位置消费
+    private final boolean consumeFromLatest;
 
     // 运行控制
     private volatile boolean running = true;
@@ -35,10 +42,27 @@ public class RocketMQSeismicSource extends RichParallelSourceFunction<SeismicRec
     // 统计
     private transient AtomicLong messageCount;
 
-    public RocketMQSeismicSource(String namesrvAddr, String topic, String consumerGroup) {
+    /**
+     * 兼容旧构造（默认从头消费）
+     */
+    public RocketMQSeismicSource(String namesrvAddr, String topic,
+                                 String consumerGroup) {
+        this(namesrvAddr, topic, consumerGroup, false);
+    }
+
+    /**
+     * ★ 新构造：支持指定消费起始位置
+     *
+     * @param consumeFromLatest true = 从 Broker 最新 offset 开始（全新启动）
+     *                          false = 从上次消费位置继续（Savepoint 恢复）
+     */
+    public RocketMQSeismicSource(String namesrvAddr, String topic,
+                                 String consumerGroup,
+                                 boolean consumeFromLatest) {
         this.namesrvAddr = namesrvAddr;
         this.topic = topic;
         this.consumerGroup = consumerGroup;
+        this.consumeFromLatest = consumeFromLatest;
     }
 
     @Override
@@ -46,71 +70,84 @@ public class RocketMQSeismicSource extends RichParallelSourceFunction<SeismicRec
         super.open(parameters);
         messageCount = new AtomicLong(0);
 
-        // 获取当前子任务信息
         int subtaskIndex = getRuntimeContext().getIndexOfThisSubtask();
         int parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
-        LOG.info("Source subtask {}/{} 启动", subtaskIndex, parallelism);
+        LOG.info("Source subtask {}/{} 启动, consumerGroup={}, consumeFromLatest={}",
+                subtaskIndex, parallelism, consumerGroup, consumeFromLatest);
 
         // 初始化 RocketMQ Consumer
-        // 每个子任务使用不同的实例名，避免冲突
         consumer = new DefaultMQPushConsumer(consumerGroup);
         consumer.setNamesrvAddr(namesrvAddr);
         consumer.setInstanceName("source_" + subtaskIndex);
-        consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+
+        // ★ 根据参数决定消费起始位置
+        if (consumeFromLatest) {
+            // 全新启动：从 Broker 最新位置开始
+            // 跳过历史积压，确保采集到的是当前实时数据
+            consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
+            LOG.info("Source subtask {} 消费模式: LAST_OFFSET (从最新位置)", subtaskIndex);
+        } else {
+            // 正常/恢复模式：从头开始或从上次 offset 继续
+            consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+            LOG.info("Source subtask {} 消费模式: FIRST_OFFSET (从头/续点)", subtaskIndex);
+        }
 
         // 订阅 Topic
         consumer.subscribe(topic, "*");
 
         // 设置消费参数
-        consumer.setConsumeMessageBatchMaxSize(32);     // 每批最多消费 32 条
-        consumer.setPullBatchSize(64);                  // 每次拉取 64 条
-        consumer.setConsumeThreadMin(4);                // 最小消费线程数
-        consumer.setConsumeThreadMax(8);                // 最大消费线程数
+        consumer.setConsumeMessageBatchMaxSize(32);
+        consumer.setPullBatchSize(64);
+        consumer.setConsumeThreadMin(4);
+        consumer.setConsumeThreadMax(8);
     }
 
     @Override
     public void run(SourceContext<SeismicRecord> ctx) throws Exception {
         int subtaskIndex = getRuntimeContext().getIndexOfThisSubtask();
-        LOG.info("Source subtask {} 开始消费, Topic: {}", subtaskIndex, topic);
+        LOG.info("Source subtask {} 开始消费, Topic: {}, Group: {}",
+                subtaskIndex, topic, consumerGroup);
 
-        // 注册消息监听器
         consumer.registerMessageListener(new MessageListenerConcurrently() {
             @Override
-            public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs,
-                                                            ConsumeConcurrentlyContext context) {
+            public ConsumeConcurrentlyStatus consumeMessage(
+                    List<MessageExt> msgs,
+                    ConsumeConcurrentlyContext context) {
                 for (MessageExt msg : msgs) {
                     if (!running) {
                         return ConsumeConcurrentlyStatus.RECONSUME_LATER;
                     }
 
                     try {
-                        // Protobuf 反序列化
-                        SeismicRecord record = SeismicRecord.parseFrom(msg.getBody());
+                        SeismicRecord raw = SeismicRecord.parseFrom(msg.getBody());
 
-                        // 通过 SourceContext 发射数据（线程安全）
+                        SeismicRecord record = raw.toBuilder()
+                                .setSourceProcessingTimeMs(System.currentTimeMillis())
+                                .build();
+
                         synchronized (ctx.getCheckpointLock()) {
                             ctx.collect(record);
                         }
 
-                        // 统计
                         long count = messageCount.incrementAndGet();
                         if (count % 10000 == 0) {
-                            LOG.info("Source subtask {} 已消费 {} 条消息", subtaskIndex, count);
+                            LOG.info("Source subtask {} 已消费 {} 条消息",
+                                    subtaskIndex, count);
                         }
 
                     } catch (Exception e) {
-                        LOG.error("消息反序列化失败, msgId={}", msg.getMsgId(), e);
+                        LOG.error("消息反序列化失败, msgId={}",
+                                msg.getMsgId(), e);
                     }
                 }
                 return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
             }
         });
 
-        // 启动消费者
         consumer.start();
-        LOG.info("Source subtask {} RocketMQ Consumer 启动成功", subtaskIndex);
+        LOG.info("Source subtask {} RocketMQ Consumer 启动成功, Group={}",
+                subtaskIndex, consumerGroup);
 
-        // 保持运行，直到 cancel() 被调用
         while (running) {
             Thread.sleep(1000);
         }
@@ -124,7 +161,8 @@ public class RocketMQSeismicSource extends RichParallelSourceFunction<SeismicRec
 
     @Override
     public void close() throws Exception {
-        LOG.info("Source 关闭, 共消费 {} 条消息", messageCount != null ? messageCount.get() : 0);
+        LOG.info("Source 关闭, 共消费 {} 条消息",
+                messageCount != null ? messageCount.get() : 0);
         running = false;
         if (consumer != null) {
             consumer.shutdown();

@@ -5,7 +5,7 @@
 1. 候选参数生成（三来源混合采样）
 2. GP/RF 预测 + 硬约束预过滤
 3. EI 排序 + 安全选择（Top-K 中选 σ 最小的）
-4. 效率阈值检查（ET）
+4. 效率阈值检查（ET）—— 仅在足够观测后生效
 5. 保守模式降级
 """
 
@@ -26,13 +26,6 @@ class BayesianOptimizer:
     """贝叶斯优化器"""
 
     def __init__(self, config_path: str = None, config_dict: dict = None):
-        """
-        初始化贝叶斯优化器
-
-        Args:
-            config_path: 配置文件路径
-            config_dict: 完整配置字典
-        """
         if config_dict is not None:
             cfg = config_dict
         elif config_path is not None:
@@ -59,18 +52,21 @@ class BayesianOptimizer:
         safety_cfg = cfg['safety']
         self.efficiency_threshold = float(safety_cfg['efficiency_threshold'])
 
+        # ★ 新增：ET 最少观测数，低于此数量不做 ET 检查
+        self.et_min_observations = int(safety_cfg.get('et_min_observations', 12))
+
         # 组件
         self.space = ParameterSpace(config_dict=cfg)
         self.model = SurrogateModel(config_dict=cfg)
         self.acquisition = AcquisitionFunction(config_dict=cfg)
 
         logger.info("BayesianOptimizer 初始化: candidates=%d, mix=(%.0f%%/%.0f%%/%.0f%%), "
-                     "neighbor=%.0f%%, top_k=%d, ET=%.0f%%",
+                     "neighbor=%.0f%%, top_k=%d, ET=%.0f%% (min_obs=%d)",
                      self.n_candidates,
                      self.random_ratio * 100, self.best_neighbor_ratio * 100,
                      self.top5_neighbor_ratio * 100,
                      self.neighbor_range * 100, self.top_k_select,
-                     self.efficiency_threshold * 100)
+                     self.efficiency_threshold * 100, self.et_min_observations)
 
     # ==========================================
     # 主入口
@@ -87,7 +83,7 @@ class BayesianOptimizer:
         2. 生成候选参数（三来源混合）
         3. GP/RF 预测 → 计算 EI
         4. 安全选择（Top-K 中选 σ 最小的）
-        5. 效率阈值检查
+        5. 效率阈值检查（仅在足够观测后生效）
 
         Args:
             store: 观测存储
@@ -162,7 +158,26 @@ class BayesianOptimizer:
         ei[~valid_mask] = 0.0
 
         if ei.max() <= 0:
-            logger.info("所有候选 EI=0, 无改善空间")
+            # ★ 改进：EI 全为 0 时，如果观测数不足，用不确定性最大的候选
+            if n_valid < self.et_min_observations:
+                logger.info("EI 全为 0 但观测不足 (%d < %d)，选择 σ 最大的候选（探索）",
+                            n_valid, self.et_min_observations)
+                sigma_valid = sigma.copy()
+                sigma_valid[~valid_mask] = 0.0
+                best_idx = int(np.argmax(sigma_valid))
+                best_theta = self.space.denormalize(candidates_norm[best_idx])
+                return {
+                    "theta": best_theta,
+                    "ei": 0.0,
+                    "mu": float(mu[best_idx]),
+                    "sigma": float(sigma[best_idx]),
+                    "model_type": model_type,
+                    "xi": xi,
+                    "predicted_improvement": 0.0,
+                    "reason": "exploration_fallback",
+                }
+            logger.info("所有候选 EI=0, 且观测充足 (%d >= %d), 无改善空间",
+                        n_valid, self.et_min_observations)
             return None
 
         # 安全选择：EI Top-K 中选 σ 最小的
@@ -182,8 +197,25 @@ class BayesianOptimizer:
         # ─────────────────────────────
         # 5. 效率阈值检查 (ET)
         # ─────────────────────────────
-        if j_current > 0:
-            predicted_improvement = (j_current - best_mu) / j_current
+
+        # ★ 改进：观测数不足时跳过 ET 检查，强制探索
+        if n_valid < self.et_min_observations:
+            logger.info("观测不足 (%d < %d)，跳过 ET 检查，强制探索",
+                        n_valid, self.et_min_observations)
+            return {
+                "theta": best_theta,
+                "ei": best_ei,
+                "mu": best_mu,
+                "sigma": best_sigma,
+                "model_type": model_type,
+                "xi": xi,
+                "predicted_improvement": 0.0,
+                "reason": "forced_exploration",
+            }
+
+        # ★ 改进：用 j_best 而非 j_current 计算改善比
+        if j_best > 0:
+            predicted_improvement = (j_best - best_mu) / j_best
         else:
             predicted_improvement = 1.0
 
@@ -214,12 +246,6 @@ class BayesianOptimizer:
         保守模式：在最优配置附近小范围随机扰动
 
         用于 GP 置信度不足或连续回滚后的降级策略
-
-        Args:
-            theta_best: 历史最优参数配置
-
-        Returns:
-            dict: 微调后的参数配置
         """
         rng = np.random.RandomState()
         theta_norm = self.space.normalize(theta_best)
@@ -251,13 +277,6 @@ class BayesianOptimizer:
         来源 A: 随机均匀采样 (70%) — 全局探索
         来源 B: 最优邻域采样 (20%) — 局部精细搜索
         来源 C: Top-5 邻域采样 (10%) — 利用历史经验
-
-        Args:
-            theta_best_norm: 最优配置（归一化）
-            top_k_norms: Top-K 配置列表（归一化）
-
-        Returns:
-            np.ndarray: shape=(n_candidates, 3)
         """
         rng = np.random.RandomState()
 
@@ -288,7 +307,6 @@ class BayesianOptimizer:
                 top5_samples.append(nb)
             top5_all = np.vstack(top5_samples)
 
-            # 截断或补齐到 n_top5
             if len(top5_all) > n_top5:
                 top5_all = top5_all[:n_top5]
             elif len(top5_all) < n_top5:
@@ -301,12 +319,11 @@ class BayesianOptimizer:
             candidates.append(extra)
 
         all_candidates = np.vstack(candidates)
-
-        # 确保所有值在 [0, 1] 范围内
         all_candidates = np.clip(all_candidates, 0.0, 1.0)
 
         return all_candidates
 
     def __repr__(self) -> str:
         return (f"BayesianOptimizer(candidates={self.n_candidates}, "
-                f"ET={self.efficiency_threshold:.0%})")
+                f"ET={self.efficiency_threshold:.0%}, "
+                f"et_min_obs={self.et_min_observations})")

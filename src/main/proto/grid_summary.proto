@@ -12,4 +12,6 @@ message GridSummary {
   double avg_peak_amplitude    = 4;  // 网格内节点平均峰值振幅
   double trigger_rate          = 5;  // 触发率 = active / total
   int64  last_update_timestamp = 6;  // 最近一次更新的时间戳（秒）
+  int64 source_processing_time_ms = 7; // 从EventFeature透传（用于Grid链路延迟）
+
 }

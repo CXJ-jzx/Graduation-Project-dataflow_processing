@@ -1,21 +1,10 @@
-"""
-Flink 作业执行器 (REST API 版)
-
-修改说明:
-1. Cancel: REST PATCH /jobs/{id}（已验证）
-2. 提交:  REST /jars/{jar_id}/run（绕过 CLI commons-cli bug）
-3. JAR 上传: SSH curl 到 localhost:8081/jars/upload
-4. DS2 协调: 文件锁（同一台 Windows 宿主机，路径互通）
-
-验证记录:
-  Savepoint  ✅  瞬间完成
-  Cancel     ✅  REST PATCH 202
-  Submit     ✅  REST /jars/run 200
-  JAR Upload ✅  SSH curl 上传
-"""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import os
 import time
+import subprocess
+import uuid
 import requests
 import paramiko
 import logging
@@ -26,7 +15,7 @@ logger = logging.getLogger("ml_tuner.job_executor")
 
 
 class JobExecutor:
-    """通过 REST API 管理 Flink 作业的生命周期"""
+    """通过 REST API 管理 Flink 作业生命周期"""
 
     def __init__(self, config_path: str = None, config_dict: dict = None):
         if config_dict is not None:
@@ -41,21 +30,23 @@ class JobExecutor:
         flink_cfg = cfg['flink']
         self.rest_url = flink_cfg['rest_url'].rstrip('/')
         self.flink_home = flink_cfg.get('flink_home', '/opt/app/flink-1.17.2')
-        self.jar_path = flink_cfg.get('jar_path',
-                                       '/opt/flink_jobs/flink-rocketmq-demo-1.0-SNAPSHOT.jar')
+        self.jar_path = flink_cfg.get(
+            'jar_path',
+            '/opt/flink_jobs/flink-rocketmq-demo-1.0-SNAPSHOT.jar')
         self.main_class = flink_cfg.get('main_class', 'org.jzx.SeismicStreamJob')
         self.job_name = flink_cfg.get('job_name', 'SeismicStreamJob')
-        self.savepoint_dir = flink_cfg.get('savepoint_dir',
-                                            'hdfs://node01:9000/flink/savepoints')
+        self.savepoint_dir = flink_cfg.get(
+            'savepoint_dir',
+            'hdfs://node01:9000/flink/savepoints')
 
-        # SSH 配置（仅用于 JAR 上传）
+        # SSH 配置
         ssh_cfg = cfg.get('ssh', {})
         self.ssh_host = ssh_cfg.get('host', '192.168.56.151')
         self.ssh_port = ssh_cfg.get('port', 22)
         self.ssh_user = ssh_cfg.get('user', 'root')
         self.ssh_password = ssh_cfg.get('password', '')
 
-        # DS2 协调（文件锁）
+        # DS2 协调
         ds2_cfg = cfg.get('ds2', {})
         self.pause_signal_file = ds2_cfg.get('pause_signal_file', '')
         self.ds2_lock_file = ds2_cfg.get('lock_file', '')
@@ -68,6 +59,17 @@ class JobExecutor:
         self.warm_up_seconds = cfg.get('scheduler', {}).get(
             'warm_up_after_apply_seconds', 90)
 
+        # RocketMQ 配置
+        rmq_cfg = cfg.get('rocketmq', {})
+        self._consumer_group_deregister_wait = int(
+            rmq_cfg.get('deregister_wait_seconds', 15))
+        self._rocketmq_home = rmq_cfg.get('home', '/usr/local/rocketmq')
+        self._rocketmq_cluster = rmq_cfg.get('cluster', 'RaftCluster')
+        self._consumer_group_prefix = rmq_cfg.get(
+            'consumer_group_prefix', 'seismic-flink-consumer-group')
+        self._cleanup_old_consumer_group_enabled = bool(
+            rmq_cfg.get('cleanup_old_consumer_group', True))
+
         # 状态
         self._jar_id: Optional[str] = None
         self._current_job_id: Optional[str] = None
@@ -79,172 +81,193 @@ class JobExecutor:
         self._consecutive_failures = 0
         self._max_failures = 3
 
+        # Producer 配置
+        producer_cfg = cfg.get('producer', {})
+        self._producer_enabled = producer_cfg.get('enabled', True)
+        self._producer_class = producer_cfg.get(
+            'main_class', 'org.jzx.producer.SeismicProducer')
+        self._producer_local_jar = producer_cfg.get(
+            'local_jar',
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                'target',
+                'flink-rocketmq-demo-1.0-SNAPSHOT.jar'))
+        self._producer_work_dir = producer_cfg.get(
+            'work_dir',
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self._producer_process: Optional[subprocess.Popen] = None
+        self._producer_log_handle = None
+
+        self._producer_log_dir = os.path.join(
+            self._producer_work_dir, 'ML_Tuner', 'logs')
+        self._producer_log_path = os.path.join(
+            self._producer_log_dir, 'producer.log')
+        self._producer_last_log_size = 0
+        self._producer_last_check_ts = 0.0
+
+        # 当前/上一个 consumer group 信息
+        self._pending_consumer_suffix: Optional[str] = None
+        self._pending_consumer_group: Optional[str] = None
+        self._last_consumer_suffix: Optional[str] = None
+        self._last_consumer_group: Optional[str] = None
+
         logger.info("JobExecutor 初始化: rest=%s, jar=%s, main=%s",
-                     self.rest_url, self.jar_path, self.main_class)
+                    self.rest_url, self.jar_path, self.main_class)
 
     # ================================================================
     # 公开接口
     # ================================================================
 
-    def apply_parameters(self, params: Dict[str, int]) -> bool:
+    def apply_parameters(self, params: Dict[str, int], *,
+                         use_savepoint: bool = True) -> bool:
         """
-        应用新参数：Savepoint → Cancel → Resubmit
-
-        Args:
-            params: {"checkpoint_interval": 30000,
-                     "buffer_timeout": 100,
-                     "watermark_delay": 5000}
-
-        Returns:
-            bool: 是否成功
+        统一策略：停旧启新（不使用 Savepoint）。
+        use_savepoint 参数保留仅为兼容调用方。
         """
-        logger.info("=" * 50)
-        logger.info("开始应用新参数: %s", params)
-        logger.info("=" * 50)
-
         try:
-            # 1. 暂停 DS2
             if self.ds2_enabled:
                 self._acquire_ds2_lock()
 
-            # 2. 确保 JAR 已上传
             if not self._ensure_jar_uploaded():
                 raise RuntimeError("JAR 上传失败")
 
-            # 3. 找到当前运行中的作业
             current_job = self._find_running_job()
+            mode_str = "停旧启新" if current_job else "首次启动"
 
-            savepoint_path = None
+            logger.info("=" * 50)
+            logger.info("开始应用新参数 [%s]: %s", mode_str, params)
+            logger.info("=" * 50)
+
+            old_group = self._last_consumer_group
+
+            # 1) 停旧作业
             if current_job:
-                # 4. Savepoint
-                savepoint_path = self._trigger_savepoint(current_job)
-
-                # 5. Cancel
                 self._cancel_job(current_job)
-
-                # 6. 等待资源释放
                 self._wait_slots_available()
 
-            # 7. 构建参数并提交
-            program_args = self._build_program_args(params)
-            new_job_id = self._submit_job(program_args, savepoint_path)
+                # 可选：清理旧 Consumer Group，防止 Broker 累积历史位点
+                if self._cleanup_old_consumer_group_enabled and old_group:
+                    self._cleanup_old_consumer_group(old_group)
 
+                wait_sec = self._consumer_group_deregister_wait
+                logger.info("等待 %ds 让旧 Consumer Group 注销...", wait_sec)
+                time.sleep(wait_sec)
+
+            # 2) 新作业（新 Group + latest）
+            program_args = self._build_program_args(params, fresh_start=True)
+            new_job_id = self._submit_job(program_args, None)
             if not new_job_id:
                 raise RuntimeError("作业提交失败")
 
-            # 8. 等待 RUNNING
             if not self._wait_job_running(new_job_id):
-                raise RuntimeError(f"作业 {new_job_id} 未能进入 RUNNING 状态")
+                raise RuntimeError(f"作业 {new_job_id} 未能进入 RUNNING")
 
             self._current_job_id = new_job_id
             self._consecutive_failures = 0
 
-            logger.info("✅ 参数应用成功: job=%s", new_job_id)
+            # 提交成功后确认 current group
+            self._last_consumer_suffix = self._pending_consumer_suffix
+            self._last_consumer_group = self._pending_consumer_group
+
+            # 3) Producer 健康保障
+            self._ensure_producer_running()
+            if not self.is_producer_healthy():
+                logger.warning("Producer 似乎异常，尝试重启...")
+                self._start_producer()
+
+            logger.info("✅ 参数应用成功 [%s]: job=%s", mode_str, new_job_id)
             return True
 
         except Exception as e:
             self._consecutive_failures += 1
             logger.error("❌ 参数应用失败 (%d/%d): %s",
-                         self._consecutive_failures, self._max_failures, e)
+                         self._consecutive_failures,
+                         self._max_failures, e)
             return False
 
         finally:
-            # 释放 DS2 锁
             if self.ds2_enabled:
                 self._release_ds2_lock()
 
     def get_current_job_id(self) -> Optional[str]:
-        """获取当前作业 ID（优先从 REST 查询）"""
         job_id = self._find_running_job()
         if job_id:
             self._current_job_id = job_id
         return self._current_job_id
 
     def is_job_healthy(self) -> bool:
-        """检查当前作业是否健康运行"""
         job_id = self._find_running_job()
         if not job_id:
             return False
-
         try:
             detail = self._get(f"/jobs/{job_id}")
-            # 检查所有 vertex 是否都是 RUNNING
             for v in detail.get('vertices', []):
                 status = v.get('status', '')
                 if status != 'RUNNING':
-                    logger.warning("算子 %s 状态异常: %s", v.get('name'), status)
+                    logger.warning("算子 %s 状态异常: %s",
+                                   v.get('name'), status)
                     return False
             return True
         except Exception:
             return False
 
     def should_abort(self) -> bool:
-        """是否应该中止（连续失败太多次）"""
         return self._consecutive_failures >= self._max_failures
 
     # ================================================================
-    # Savepoint
+    # 参数构建
     # ================================================================
 
-    def _trigger_savepoint(self, job_id: str) -> Optional[str]:
-        """触发 Savepoint 并等待完成"""
-        logger.info("触发 Savepoint: job=%s", job_id)
+    def _build_program_args(self, params: Dict[str, int],
+                            fresh_start: bool = False) -> str:
+        param_to_arg = {
+            "checkpoint_interval": "checkpoint-interval",
+            "buffer_timeout": "buffer-timeout",
+            "watermark_delay": "watermark-delay",
+        }
 
-        resp = self._post(f"/jobs/{job_id}/savepoints", {
-            "cancel-job": False,
-            "target-directory": self.savepoint_dir
-        })
+        parts = []
+        for key, cli_name in param_to_arg.items():
+            if key in params:
+                parts.append(f"--{cli_name} {int(params[key])}")
 
-        trigger_id = resp.get("request-id")
-        if not trigger_id:
-            logger.error("Savepoint 触发失败: %s", resp)
-            return None
+        if fresh_start:
+            suffix = f"_{uuid.uuid4().hex[:8]}"
+            self._pending_consumer_suffix = suffix
+            self._pending_consumer_group = f"{self._consumer_group_prefix}{suffix}"
 
-        # 等待完成
-        for i in range(self.savepoint_timeout // 2):
-            time.sleep(2)
-            status = self._get(f"/jobs/{job_id}/savepoints/{trigger_id}")
-            s = status.get("status", {}).get("id", "UNKNOWN")
+            parts.append(f"--consumer-group-suffix {suffix}")
+            parts.append("--consume-from-latest true")
+            logger.info("全新启动: Consumer Group=%s, 从最新位置消费",
+                        self._pending_consumer_group)
 
-            if s == "COMPLETED":
-                path = status["operation"]["location"]
-                logger.info("✅ Savepoint 完成: %s", path)
-                return path
+        default_parallelism = {
+            "p-source": 2,
+            "p-filter": 4,
+            "p-signal": 4,
+            "p-feature": 4,
+            "p-grid": 4,
+            "p-sink": 2,
+        }
+        for p_name, p_val in default_parallelism.items():
+            parts.append(f"--{p_name} {p_val}")
 
-            if s == "FAILED":
-                cause = status.get("operation", {}).get("failure-cause", {})
-                logger.error("❌ Savepoint 失败: %s", str(cause)[:300])
-                return None
-
-        logger.error("Savepoint 超时 (%ds)", self.savepoint_timeout)
-        return None
+        return " ".join(parts)
 
     # ================================================================
-    # Cancel
+    # Cancel / Submit
     # ================================================================
 
     def _cancel_job(self, job_id: str) -> bool:
-        """Cancel 作业（REST PATCH，已验证可用）"""
         logger.info("Cancel 作业: %s", job_id)
 
         try:
-            resp = self._session.patch(
-                f"{self.rest_url}/jobs/{job_id}",
-                timeout=self._timeout
-            )
+            resp = self._session.patch(f"{self.rest_url}/jobs/{job_id}",
+                                       timeout=self._timeout)
             logger.info("Cancel 响应码: %d", resp.status_code)
-
-            if resp.status_code not in [200, 202]:
-                logger.warning("REST Cancel 返回 %d，尝试 stop-with-savepoint",
-                               resp.status_code)
-                self._post(f"/jobs/{job_id}/savepoints", {
-                    "cancel-job": True,
-                    "target-directory": self.savepoint_dir
-                })
         except Exception as e:
             logger.error("Cancel 请求异常: %s", e)
 
-        # 等待作业停止
         for i in range(self.cancel_timeout // 2):
             time.sleep(2)
             try:
@@ -260,19 +283,10 @@ class JobExecutor:
         logger.error("等待作业停止超时")
         return False
 
-    # ================================================================
-    # 提交作业（REST API）
-    # ================================================================
-
     def _submit_job(self, program_args: str,
-                     savepoint_path: Optional[str] = None) -> Optional[str]:
-        """
-        通过 REST /jars/{id}/run 提交作业
-
-        已验证: 绕过 CLI commons-cli 版本冲突
-        """
+                    savepoint_path: Optional[str] = None) -> Optional[str]:
         logger.info("提交作业: savepoint=%s",
-                     savepoint_path if savepoint_path else "无（全新启动）")
+                    savepoint_path if savepoint_path else "无（全新启动）")
         logger.info("参数: %s", program_args)
 
         run_body = {
@@ -280,39 +294,20 @@ class JobExecutor:
             "programArgs": program_args,
             "allowNonRestoredState": True,
         }
-
         if savepoint_path:
             run_body["savepointPath"] = savepoint_path
 
         try:
             resp = self._session.post(
                 f"{self.rest_url}/jars/{self._jar_id}/run",
-                json=run_body,
-                timeout=self.submit_timeout
+                json=run_body, timeout=self.submit_timeout
             )
-
             if resp.status_code == 200:
                 job_id = resp.json().get("jobid")
                 logger.info("✅ 作业提交成功: %s", job_id)
                 return job_id
 
-            logger.warning("提交返回 %d: %s", resp.status_code, resp.text[:300])
-
-            # 如果带 savepoint 失败，尝试不带
-            if savepoint_path:
-                logger.info("从 Savepoint 恢复失败，尝试全新启动...")
-                run_body.pop("savepointPath", None)
-                resp = self._session.post(
-                    f"{self.rest_url}/jars/{self._jar_id}/run",
-                    json=run_body,
-                    timeout=self.submit_timeout
-                )
-                if resp.status_code == 200:
-                    job_id = resp.json().get("jobid")
-                    logger.info("✅ 全新启动成功: %s", job_id)
-                    return job_id
-
-            logger.error("❌ 所有提交方式失败")
+            logger.error("❌ 提交失败 %d: %s", resp.status_code, resp.text[:300])
             return None
 
         except Exception as e:
@@ -320,8 +315,6 @@ class JobExecutor:
             return None
 
     def _ensure_jar_uploaded(self) -> bool:
-        """确保 JAR 已上传到 Flink REST API"""
-        # 检查缓存的 jar_id 是否仍有效
         if self._jar_id:
             try:
                 jars = self._get("/jars")
@@ -332,33 +325,31 @@ class JobExecutor:
                 pass
             self._jar_id = None
 
-        # 检查是否已上传过
         try:
             jars = self._get("/jars")
             for f in jars.get("files", []):
-                if 'rocketmq-demo' in f['name'].lower() or 'seismic' in f['name'].lower():
+                if ('rocketmq-demo' in f['name'].lower()
+                        or 'seismic' in f['name'].lower()):
                     self._jar_id = f["id"]
                     logger.info("找到已上传的 JAR: %s", self._jar_id)
                     return True
         except Exception:
             pass
 
-        # 通过 SSH 在 node01 上 curl 上传
         logger.info("上传 JAR: %s", self.jar_path)
         try:
             upload_cmd = (
-                f'curl -s -X POST '
-                f'-H "Expect:" '
+                f'curl -s -X POST -H "Expect:" '
                 f'-F "jarfile=@{self.jar_path}" '
                 f'http://localhost:8081/jars/upload'
             )
             out = self._ssh_exec(upload_cmd)
 
             if '"status":"success"' in out:
-                # 重新查询获取 jar_id
                 jars = self._get("/jars")
                 for f in jars.get("files", []):
-                    if 'rocketmq-demo' in f['name'].lower() or 'seismic' in f['name'].lower():
+                    if ('rocketmq-demo' in f['name'].lower()
+                            or 'seismic' in f['name'].lower()):
                         self._jar_id = f["id"]
                         logger.info("✅ JAR 上传成功: %s", self._jar_id)
                         return True
@@ -371,11 +362,148 @@ class JobExecutor:
             return False
 
     # ================================================================
+    # Consumer Group 清理（可选）
+    # ================================================================
+
+    def _cleanup_old_consumer_group(self, group_name: str):
+        """
+        删除旧 Consumer Group 订阅关系，减少 Broker 历史积压压力。
+        失败不影响主流程。
+        """
+        logger.info("尝试清理旧 Consumer Group: %s", group_name)
+        cmd = (
+            f"sh {self._rocketmq_home}/bin/mqadmin deleteSubGroup "
+            f"-n 192.168.56.151:9876 "
+            f"-c {self._rocketmq_cluster} "
+            f"-g {group_name} || true"
+        )
+        try:
+            out = self._ssh_exec(cmd)
+            logger.info("清理旧 Consumer Group 完成: %s, out=%s",
+                        group_name, out[:200] if out else "")
+        except Exception as e:
+            logger.warning("清理旧 Consumer Group 失败(非致命): %s", e)
+
+    # ================================================================
+    # Producer 生命周期
+    # ================================================================
+
+    def is_producer_healthy(self) -> bool:
+        if not self._producer_enabled:
+            return True
+
+        # 1) 进程存活
+        if self._producer_process is None:
+            return False
+        if self._producer_process.poll() is not None:
+            return False
+
+        # 2) 日志活跃度检查（防止“进程活着但不发送”）
+        now = time.time()
+        if not os.path.exists(self._producer_log_path):
+            return True
+
+        try:
+            mtime = os.path.getmtime(self._producer_log_path)
+            size = os.path.getsize(self._producer_log_path)
+
+            # 日志超过 180s 没更新，判定可疑
+            if now - mtime > 180:
+                logger.warning("Producer 日志超过 180s 未更新: %s",
+                               self._producer_log_path)
+                return False
+
+            # 周期性检查大小是否增长
+            if now - self._producer_last_check_ts > 60:
+                if size <= self._producer_last_log_size:
+                    logger.warning("Producer 日志大小无增长: %d -> %d",
+                                   self._producer_last_log_size, size)
+                    # 不直接判死，给一次机会
+                self._producer_last_log_size = size
+                self._producer_last_check_ts = now
+
+        except Exception:
+            pass
+
+        return True
+
+    def _ensure_producer_running(self):
+        if not self._producer_enabled:
+            return
+
+        if self.is_producer_healthy():
+            logger.debug("Producer 健康: PID=%s",
+                         self._producer_process.pid if self._producer_process else "N/A")
+            return
+
+        logger.warning("Producer 不健康，准备重启...")
+        self._start_producer()
+
+    def _start_producer(self):
+        if not os.path.exists(self._producer_local_jar):
+            logger.error("Producer JAR 不存在: %s", self._producer_local_jar)
+            return
+
+        self._stop_producer()
+
+        os.makedirs(self._producer_log_dir, exist_ok=True)
+
+        try:
+            self._producer_log_handle = open(self._producer_log_path, 'a', encoding='utf-8')
+            cmd = ['java', '-cp', self._producer_local_jar, self._producer_class]
+
+            self._producer_process = subprocess.Popen(
+                cmd,
+                cwd=self._producer_work_dir,
+                stdout=self._producer_log_handle,
+                stderr=subprocess.STDOUT,
+            )
+
+            time.sleep(3)
+
+            if self._producer_process.poll() is not None:
+                logger.error("Producer 启动后立即退出, returncode=%d",
+                             self._producer_process.returncode)
+                self._producer_process = None
+                return
+
+            self._producer_last_check_ts = time.time()
+            self._producer_last_log_size = os.path.getsize(self._producer_log_path) \
+                if os.path.exists(self._producer_log_path) else 0
+
+            logger.info("✅ Producer 已启动: PID=%d, log=%s",
+                        self._producer_process.pid, self._producer_log_path)
+
+        except Exception as e:
+            logger.error("Producer 启动失败: %s", e)
+            self._producer_process = None
+
+    def _stop_producer(self):
+        if self._producer_process is not None and self._producer_process.poll() is None:
+            logger.info("停止 Producer: PID=%d", self._producer_process.pid)
+            try:
+                self._producer_process.terminate()
+                self._producer_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self._producer_process.kill()
+                self._producer_process.wait(timeout=5)
+            except Exception as e:
+                logger.warning("停止 Producer 异常: %s", e)
+
+        self._producer_process = None
+
+        if self._producer_log_handle is not None:
+            try:
+                self._producer_log_handle.close()
+            except Exception:
+                pass
+            self._producer_log_handle = None
+
+    # ================================================================
     # 辅助方法
     # ================================================================
 
     def _find_running_job(self) -> Optional[str]:
-        """查找运行中的作业"""
         try:
             jobs = self._get("/jobs")
             for j in jobs.get("jobs", []):
@@ -386,7 +514,6 @@ class JobExecutor:
         return None
 
     def _wait_job_running(self, job_id: str, timeout: int = 90) -> bool:
-        """等待作业进入 RUNNING 状态"""
         for i in range(timeout // 3):
             time.sleep(3)
             try:
@@ -395,7 +522,6 @@ class JobExecutor:
                     logger.info("作业 RUNNING: %s", job_id)
                     return True
                 if state in ["FAILED", "CANCELED", "CANCELLED"]:
-                    # 获取异常信息
                     try:
                         exc = self._get(f"/jobs/{job_id}/exceptions")
                         root = exc.get("root-exception", "未知")
@@ -412,67 +538,26 @@ class JobExecutor:
         return False
 
     def _wait_slots_available(self, min_slots: int = 4, timeout: int = 30):
-        """等待足够的 slot 释放"""
-        for i in range(timeout // 2):
+        for _ in range(timeout // 2):
             time.sleep(2)
             try:
                 overview = self._get("/overview")
                 available = overview.get("slots-available", 0)
                 if available >= min_slots:
-                    logger.debug("Slots 可用: %d", available)
                     return
             except Exception:
                 pass
-
         logger.warning("等待 slot 释放超时，继续尝试提交")
-
-    def _build_program_args(self, params: Dict[str, int]) -> str:
-        """
-        构建程序参数字符串
-
-        params 中的 key（Python 风格）映射到 CLI 参数（横杠风格）:
-          checkpoint_interval → --checkpoint-interval
-          buffer_timeout      → --buffer-timeout
-          watermark_delay     → --watermark-delay
-        """
-        # 参数名映射
-        param_to_arg = {
-            "checkpoint_interval": "checkpoint-interval",
-            "buffer_timeout": "buffer-timeout",
-            "watermark_delay": "watermark-delay",
-        }
-
-        parts = []
-        for key, cli_name in param_to_arg.items():
-            if key in params:
-                parts.append(f"--{cli_name} {int(params[key])}")
-
-        # 并行度参数（保持当前值，由 DS2 控制）
-        default_parallelism = {
-            "p-source": 2,
-            "p-filter": 4,
-            "p-signal": 4,
-            "p-feature": 4,
-            "p-grid": 4,
-            "p-sink": 2,
-        }
-        for p_name, p_val in default_parallelism.items():
-            parts.append(f"--{p_name} {p_val}")
-
-        return " ".join(parts)
 
     # ================================================================
     # DS2 协调
     # ================================================================
 
     def _acquire_ds2_lock(self):
-        """暂停 DS2 并等待它释放锁"""
         if not self.pause_signal_file:
             return
 
         logger.info("暂停 DS2: 写入 %s", self.pause_signal_file)
-
-        # 写入暂停信号
         try:
             os.makedirs(os.path.dirname(self.pause_signal_file), exist_ok=True)
             with open(self.pause_signal_file, 'w') as f:
@@ -481,7 +566,6 @@ class JobExecutor:
             logger.warning("写入暂停信号失败: %s", e)
             return
 
-        # 等待 DS2 释放锁
         if self.ds2_lock_file:
             for i in range(60):
                 if not os.path.exists(self.ds2_lock_file):
@@ -494,7 +578,6 @@ class JobExecutor:
             logger.warning("等待 DS2 锁超时，继续执行")
 
     def _release_ds2_lock(self):
-        """恢复 DS2"""
         if self.pause_signal_file and os.path.exists(self.pause_signal_file):
             try:
                 os.remove(self.pause_signal_file)
@@ -519,25 +602,25 @@ class JobExecutor:
         return resp.json()
 
     def _ssh_exec(self, cmd: str) -> str:
-        """SSH 执行命令（仅用于 JAR 上传）"""
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(self.ssh_host, self.ssh_port,
                        self.ssh_user, self.ssh_password, timeout=10)
-        stdin, stdout, stderr = client.exec_command(cmd, timeout=60)
-        out = stdout.read().decode('utf-8').strip()
+        _, stdout, stderr = client.exec_command(cmd, timeout=120)
+        out = stdout.read().decode('utf-8', errors='replace').strip()
+        err = stderr.read().decode('utf-8', errors='replace').strip()
         client.close()
-        return out
+        return out if out else err
 
     # ================================================================
     # 清理
     # ================================================================
 
     def close(self):
+        self._stop_producer()
         self._session.close()
         logger.info("JobExecutor 已关闭")
 
     def __repr__(self) -> str:
-        return (f"JobExecutor(rest={self.rest_url}, "
-                f"jar_id={self._jar_id}, "
+        return (f"JobExecutor(rest={self.rest_url}, jar_id={self._jar_id}, "
                 f"job={self._current_job_id})")

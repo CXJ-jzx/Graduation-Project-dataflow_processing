@@ -155,6 +155,7 @@ public class SignalExtractionFunction
                 .setSignalLength(signal_length)
                 .setPeakAmplitude(peak_amplitude)
                 .setRmsEnergy(rms_energy)
+                .setSourceProcessingTimeMs(record.getSourceProcessingTimeMs())
                 .build();
 
         out.collect(event);

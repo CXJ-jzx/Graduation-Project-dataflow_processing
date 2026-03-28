@@ -42,6 +42,13 @@ public class EventFeatureSink extends AbstractRocketMQSink<EventFeature> {
     private transient volatile double latencyP99;
     // <<<<<< ML-TUNER 新增
 
+    private transient long[] e2eLatencyBuffer;
+    private transient int e2eWriteIdx;
+    private transient long e2eTotalCount;
+    private transient volatile double e2eLatencyP99Ms;
+
+
+
     public EventFeatureSink(String namesrvAddr) {
         super(namesrvAddr, "seismic-node-events", "event-feature-sink-group");
     }
@@ -59,6 +66,16 @@ public class EventFeatureSink extends AbstractRocketMQSink<EventFeature> {
         getRuntimeContext().getMetricGroup()
                 .gauge("latency_p99", () -> latencyP99);
         // <<<<<< ML-TUNER 新增
+        e2eLatencyBuffer = new long[LATENCY_BUFFER_SIZE];
+        e2eWriteIdx = 0;
+        e2eTotalCount = 0;
+        e2eLatencyP99Ms = 0.0;
+
+        getRuntimeContext().getMetricGroup()
+                .gauge("e2e_latency_p99_ms", () -> e2eLatencyP99Ms);
+
+
+
     }
 
     @Override
@@ -69,6 +86,27 @@ public class EventFeatureSink extends AbstractRocketMQSink<EventFeature> {
 
         // 调用父类的 invoke（批量缓冲 + 异步发送）
         super.invoke(value, context);
+
+        long srcTs = value.getSourceProcessingTimeMs();
+        if (srcTs > 0) {
+            long e2eMs = System.currentTimeMillis() - srcTs;
+            if (e2eMs >= 0 && e2eMs < 600000) { // 防脏值
+                e2eLatencyBuffer[e2eWriteIdx] = e2eMs;
+                e2eWriteIdx = (e2eWriteIdx + 1) % LATENCY_BUFFER_SIZE;
+                e2eTotalCount++;
+
+                if (e2eTotalCount % LATENCY_CALC_INTERVAL == 0) {
+                    int sampleSize = (int) Math.min(e2eTotalCount, LATENCY_BUFFER_SIZE);
+                    long[] sorted = new long[sampleSize];
+                    System.arraycopy(e2eLatencyBuffer, 0, sorted, 0, sampleSize);
+                    Arrays.sort(sorted);
+                    int p99Index = (int) Math.ceil(sampleSize * 0.99) - 1;
+                    p99Index = Math.max(0, Math.min(p99Index, sampleSize - 1));
+                    e2eLatencyP99Ms = sorted[p99Index];
+                }
+            }
+        }
+
 
         // >>>>>> ML-TUNER 新增：计算本条记录在 Sink 内的处理耗时
         long elapsedMicros = (System.nanoTime() - startNano) / 1_000;  // 纳秒→微秒

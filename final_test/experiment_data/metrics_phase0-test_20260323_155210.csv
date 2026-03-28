@@ -1,3 +1,0 @@
-timestamp,experiment_id,elapsed_sec,source_in_per_sec,source_out_per_sec,source_busy_ms,hardware_filter_in_per_sec,hardware_filter_out_per_sec,hardware_filter_busy_ms,signal_extraction_in_per_sec,signal_extraction_out_per_sec,signal_extraction_busy_ms,feature_extraction_in_per_sec,feature_extraction_out_per_sec,feature_extraction_busy_ms,grid_aggregation_in_per_sec,grid_aggregation_out_per_sec,grid_aggregation_busy_ms,eventfeature_sink_in_per_sec,eventfeature_sink_out_per_sec,eventfeature_sink_busy_ms,gridsummary_sink_in_per_sec,gridsummary_sink_out_per_sec,gridsummary_sink_busy_ms,l2_hit_rate,l2_occupancy,l3_hit_rate,l3_occupancy,latency_p99
-2026-03-23 15:52:10,phase0-test,0,,,,,,,,,,,,,,,,,,,,,,,,,,
-2026-03-23 15:52:20,phase0-test,10,,,,,,,,,,,,,,,,,,,,,,,,,,

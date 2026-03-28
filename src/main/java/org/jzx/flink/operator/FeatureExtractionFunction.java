@@ -353,6 +353,7 @@ public class FeatureExtractionFunction
                 .setIsAnomaly(isAbnormal)
                 .setRecentEventCount(recentEventCount)
                 .setAvgPeakAmplitude(avgPeakAmplitude)
+                .setSourceProcessingTimeMs(event.getSourceProcessingTimeMs())
                 .build();
 
         out.collect(feature);

@@ -15,4 +15,6 @@ message SeismicRecord {
   int32  bat_voltage = 6;   // 电池电压
   int32  bat_temp    = 7;   // 电池温度
   repeated int32 samples = 8; // 1000个采样点（24位有符号整型）
+  int64 source_processing_time_ms = 12; // Source算子打点时间（毫秒）
+
 }

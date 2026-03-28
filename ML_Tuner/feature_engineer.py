@@ -31,7 +31,7 @@ class FeatureEngineer:
         "max_busy_ratio",       # 最大繁忙率
         "total_parallelism",    # 总并行度
         "heap_usage_ratio",     # 堆内存使用率
-        "latency_p99",          # Source→Sink P99延迟 (ms)
+        "e2e_latency_p99_ms",          # Source→Sink P99延迟 (ms)
         "checkpoint_avg_dur",   # Checkpoint 平均耗时 (ms)
         "backpressure_ratio",   # 背压比例
         "l2_hit_rate",          # L2 缓存命中率
@@ -168,7 +168,9 @@ class FeatureEngineer:
         Returns:
             (J_total, J_parts): 总目标值 和 各子目标值字典
         """
-        latency_p99 = float(x_raw.get('latency_p99', 0.0))
+        latency_p99 = float(
+            x_raw.get('e2e_latency_p99_ms', x_raw.get('latency_p99', 0.0))
+        )
         avg_input_rate = float(x_raw.get('avg_input_rate', 0.0))
         checkpoint_avg_dur = float(x_raw.get('checkpoint_avg_dur', 0.0))
         avg_busy_ratio = float(x_raw.get('avg_busy_ratio', 0.0))
@@ -226,10 +228,12 @@ class FeatureEngineer:
         """
         violations = []
 
-        latency_p99 = float(x_raw.get('latency_p99', 0.0))
+        latency_p99 = float(
+            x_raw.get('e2e_latency_p99_ms', x_raw.get('latency_p99', 0.0))
+        )
         if latency_p99 > self.max_latency_p99_ms:
             violations.append(
-                f"latency_p99={latency_p99:.0f}ms > 阈值{self.max_latency_p99_ms:.0f}ms"
+                f"e2e_latency_p99_ms={latency_p99:.0f}ms > 阈值{self.max_latency_p99_ms:.0f}ms"
             )
 
         backpressure = float(x_raw.get('backpressure_ratio', 0.0))

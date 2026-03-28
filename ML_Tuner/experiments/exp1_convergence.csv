@@ -1,0 +1,13 @@
+round,phase,j_total,running_best,is_new_best,theta
+0,warmup,0.16273821428571425,0.16273821428571425,yes,"{""checkpoint_interval"": 30000.0, ""buffer_timeout"": 100.0, ""watermark_delay"": 5000.0}"
+1,warmup,0.15391089285714285,0.15391089285714285,yes,"{""checkpoint_interval"": 15000, ""buffer_timeout"": 1, ""watermark_delay"": 1000}"
+2,warmup,0.16486625,0.15391089285714285,no,"{""checkpoint_interval"": 25000, ""buffer_timeout"": 90, ""watermark_delay"": 24000}"
+3,warmup,0.18190996240601504,0.15391089285714285,no,"{""checkpoint_interval"": 90000, ""buffer_timeout"": 190, ""watermark_delay"": 11000}"
+4,warmup,0.16930714285714285,0.15391089285714285,no,"{""checkpoint_interval"": 40000, ""buffer_timeout"": 100, ""watermark_delay"": 22000}"
+5,warmup,0.1570498214285714,0.15391089285714285,no,"{""checkpoint_interval"": 85000, ""buffer_timeout"": 30, ""watermark_delay"": 15000}"
+6,warmup,0.17109589285714286,0.15391089285714285,no,"{""checkpoint_interval"": 65000, ""buffer_timeout"": 120, ""watermark_delay"": 9000}"
+7,warmup,0.1941292857142857,0.15391089285714285,no,"{""checkpoint_interval"": 115000, ""buffer_timeout"": 160, ""watermark_delay"": 29000}"
+8,optimize,0.18600321428571429,0.15391089285714285,no,"{""checkpoint_interval"": 50000, ""buffer_timeout"": 190, ""watermark_delay"": 30000}"
+9,optimize,0.1876325,0.15391089285714285,no,"{""checkpoint_interval"": 20000, ""buffer_timeout"": 180, ""watermark_delay"": 6000}"
+10,optimize,0.17084642857142857,0.15391089285714285,no,"{""checkpoint_interval"": 50000, ""buffer_timeout"": 110, ""watermark_delay"": 20000}"
+11,optimize,0.14509535714285712,0.14509535714285712,yes,"{""checkpoint_interval"": 25000, ""buffer_timeout"": 10, ""watermark_delay"": 26000}"

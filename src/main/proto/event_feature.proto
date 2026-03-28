@@ -17,4 +17,6 @@ message EventFeature {
   bool   is_anomaly         = 9;   // 是否异常（与历史均值偏差 > 50%）
   int32  recent_event_count = 10;  // 近 60 秒内触发次数
   double avg_peak_amplitude = 11;  // L2 缓存中的历史平均振幅
+  int64 source_processing_time_ms = 12; // 从SeismicEvent透传
+
 }
