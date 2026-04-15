@@ -229,15 +229,14 @@ class ObservationCollector:
         snapshot['checkpoint_failed'] = ckpt.get('failed', 0)
         snapshot['checkpoint_size'] = ckpt.get('avg_size', 0.0)
 
-        # busy
+        # ★ busy：包含 source，聚合失败时用逐 subtask 兜底
         busy_ratios = []
         for op_key, vid in self._vertex_map.items():
-            if op_key == 'source':
-                continue
-            data = self._query_subtask_metrics(vid, ['busyTimeMsPerSecond'])
-            busy_ms = data.get('busyTimeMsPerSecond', {}).get('avg', 0.0)
-            if busy_ms is not None and float(busy_ms) > 0:
-                busy_ratios.append(float(busy_ms) / 1000.0)
+            par = self._vertex_parallelism.get(op_key, 1)
+            busy = self._get_operator_busy(vid, par)
+            if busy is not None and busy > 0:
+                busy_ratios.append(busy)
+
         snapshot['avg_busy_ratio'] = float(np.mean(busy_ratios)) if busy_ratios else 0.0
         snapshot['max_busy_ratio'] = float(max(busy_ratios)) if busy_ratios else 0.0
 
@@ -253,6 +252,52 @@ class ObservationCollector:
         snapshot['active_node_count'] = 0.0
         snapshot['timestamp'] = time.time()
         return snapshot
+
+    def _get_operator_busy(self, vertex_id: str, parallelism: int) -> Optional[float]:
+        """
+        ★ 新增：获取算子繁忙率，聚合 API 失败时逐 subtask 查询
+        """
+        # 方式 1：聚合查询
+        data = self._query_subtask_metrics(vertex_id, ['busyTimeMsPerSecond'])
+        busy_ms = data.get('busyTimeMsPerSecond', {}).get('avg', None)
+        if busy_ms is not None:
+            try:
+                val = float(busy_ms)
+                if val >= 0:
+                    return val / 1000.0
+            except (ValueError, TypeError):
+                pass
+
+        # 方式 2：聚合返回空，逐 subtask 查询
+        values = []
+        for idx in range(parallelism):
+            try:
+                url = (f"{self._rest_url}/jobs/{self._job_id}"
+                       f"/vertices/{vertex_id}/subtasks/{idx}/metrics"
+                       f"?get=busyTimeMsPerSecond")
+                resp = self._session.get(url, timeout=self._timeout)
+                if resp.ok:
+                    for item in resp.json():
+                        if item.get('id') == 'busyTimeMsPerSecond':
+                            values.append(float(item.get('value', 0)) / 1000.0)
+                            break
+            except Exception:
+                pass
+
+        if values:
+            return float(np.mean(values))
+
+        # 方式 3：用 idleTimeMsPerSecond 反算
+        data2 = self._query_subtask_metrics(vertex_id, ['idleTimeMsPerSecond'])
+        idle_ms = data2.get('idleTimeMsPerSecond', {}).get('avg', None)
+        if idle_ms is not None:
+            try:
+                return max(0.0, 1.0 - float(idle_ms) / 1000.0)
+            except (ValueError, TypeError):
+                pass
+
+        return None
+
 
     def _collect_l2(self):
         feature_vid = self._vertex_map.get('feature')

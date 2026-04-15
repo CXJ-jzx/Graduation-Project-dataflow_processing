@@ -1,0 +1,55 @@
+============================================================
+  Scale-Down Test - Summary (P10)
+============================================================
+  Time: 2026-04-02T19:17:45.585330
+  Scenario: High P(6) + 2000 r/s x 10min, verify DS2 resource release
+
+--- Fixed Parallelism ---
+  Config: {'p-source': 6, 'p-filter': 6, 'p-signal': 6, 'p-feature': 6, 'p-grid': 6, 'p-sink': 3}
+  Avg throughput : 3880.8 r/s
+  Max throughput : 4185.5 r/s
+  Avg busy       : 0.081
+  Avg slots      : 6.0
+  Slot range     : [6, 6]
+  Resource cost  : 90.0 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [6, 6]
+    Grid-Aggregation              : [6, 6]
+    Hardware-Filter               : [6, 6]
+    Signal-Extraction             : [6, 6]
+    Sink                          : [3, 3]
+    Source                        : [6, 6]
+    Watermark-Assigner            : [6, 6]
+
+--- DS2 Auto-Scaling ---
+  Config: {'p-source': 6, 'p-filter': 6, 'p-signal': 6, 'p-feature': 6, 'p-grid': 6, 'p-sink': 3}
+  Avg throughput : 4173.3 r/s
+  Max throughput : 8347.1 r/s
+  Avg busy       : 0.193
+  Avg slots      : 4.6
+  Slot range     : [3, 6]
+  Resource cost  : 47.8 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [2, 6] <- dynamic
+    Grid-Aggregation              : [2, 6] <- dynamic
+    Hardware-Filter               : [2, 6] <- dynamic
+    Signal-Extraction             : [2, 6] <- dynamic
+    Sink                          : [2, 3] <- dynamic
+    Source                        : [3, 6] <- dynamic
+    Watermark-Assigner            : [3, 6] <- dynamic
+
+--- Comparison ---
+  Throughput diff : +7.5%
+  Slot diff       : -23.0%
+  Fixed efficiency: 646.8 r/s/slot
+  DS2 efficiency  : 903.1 r/s/slot
+  Efficiency gain : +39.6%
+  Resource compare: Fixed=90.0 vs DS2=47.8 slot*min
+  Resource saved: 42.2 slot*min (46.9%)
+
+--- Scale-Down Detail ---
+  DS2 final slot  : 3
+  DS2 range       : 6 -> 3
+  Fixed always    : 6 slots
+
+============================================================

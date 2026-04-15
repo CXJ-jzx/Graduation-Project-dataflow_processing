@@ -1,0 +1,28 @@
+============================================================
+  扩容测试 - Summary (P8)
+============================================================
+  Time: 2026-04-02T14:26:18.224820
+  Scenario: 低并行度(P=2)承受中等负载(6000r/s)x15min, 验证DS2扩容
+
+--- Fixed Parallelism ---
+  Config: {'p-source': 4, 'p-filter': 4, 'p-signal': 4, 'p-feature': 4, 'p-grid': 4, 'p-sink': 2}
+  (no data)
+
+--- DS2 Auto-Scaling ---
+  Config: {'p-source': 2, 'p-filter': 2, 'p-signal': 2, 'p-feature': 2, 'p-grid': 2, 'p-sink': 1}
+  Avg throughput : 12412.6 r/s
+  Max throughput : 17847.9 r/s
+  Avg busy       : 0.351
+  Avg slots      : 5.0
+  Slot range     : [2, 6]
+  Resource cost  : 89.0 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [2, 5] <- dynamic
+    Grid-Aggregation              : [2, 4] <- dynamic
+    Hardware-Filter               : [2, 4] <- dynamic
+    Signal-Extraction             : [2, 4] <- dynamic
+    Sink                          : [1, 5] <- dynamic
+    Source                        : [2, 6] <- dynamic
+    Watermark-Assigner            : [2, 6] <- dynamic
+
+============================================================

@@ -1,0 +1,58 @@
+{
+  "run_id": "E1_run01_20260329_180041",
+  "exp_name": "E1",
+  "exp_config": {
+    "name": "DS2扩容实验-恒定高负载",
+    "ds2_enabled": true,
+    "duration_seconds": 900,
+    "warmup_before_ds2": 30,
+    "drain_seconds": 60,
+    "parallelism": {
+      "p-source": 2,
+      "p-filter": 2,
+      "p-signal": 2,
+      "p-feature": 2,
+      "p-grid": 2,
+      "p-sink": 1
+    },
+    "load_profile": [
+      {
+        "name": "恒定高负载",
+        "rate": 6000,
+        "duration": 900
+      }
+    ],
+    "C1": {
+      "name": "对照实验-固定并行度",
+      "ds2_enabled": false,
+      "duration_seconds": 900,
+      "warmup_before_ds2": 30,
+      "drain_seconds": 60,
+      "parallelism": {
+        "p-source": 2,
+        "p-filter": 2,
+        "p-signal": 2,
+        "p-feature": 2,
+        "p-grid": 2,
+        "p-sink": 1
+      },
+      "load_profile": [
+        {
+          "name": "恒定高负载",
+          "rate": 6000,
+          "duration": 900
+        }
+      ]
+    }
+  },
+  "start_time": "2026-03-29T18:00:41.720373",
+  "parallelism": {
+    "p-source": 2,
+    "p-filter": 2,
+    "p-signal": 2,
+    "p-feature": 2,
+    "p-grid": 2,
+    "p-sink": 1
+  },
+  "ds2_enabled": true
+}

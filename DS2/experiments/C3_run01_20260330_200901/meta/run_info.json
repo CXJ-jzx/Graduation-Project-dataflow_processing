@@ -1,0 +1,48 @@
+{
+  "run_id": "C3_run01_20260330_200901",
+  "exp_name": "C3",
+  "exp_config": {
+    "name": "动态波动对照",
+    "description": "与E3同负载同初始并行度，不启动DS2，观察固定配置下的表现",
+    "ds2_enabled": false,
+    "duration_seconds": 1800,
+    "warmup_before_ds2": 0,
+    "drain_seconds": 60,
+    "repeat": 1,
+    "parallelism": {
+      "p-source": 4,
+      "p-filter": 3,
+      "p-signal": 3,
+      "p-feature": 2,
+      "p-grid": 2,
+      "p-sink": 1
+    },
+    "load_profile": [
+      {
+        "name": "low_phase",
+        "rate": 2000,
+        "duration": 600
+      },
+      {
+        "name": "high_phase",
+        "rate": 6000,
+        "duration": 600
+      },
+      {
+        "name": "low_phase_2",
+        "rate": 2000,
+        "duration": 600
+      }
+    ]
+  },
+  "start_time": "2026-03-30T20:09:01.668290",
+  "parallelism": {
+    "p-source": 4,
+    "p-filter": 3,
+    "p-signal": 3,
+    "p-feature": 2,
+    "p-grid": 2,
+    "p-sink": 1
+  },
+  "ds2_enabled": false
+}

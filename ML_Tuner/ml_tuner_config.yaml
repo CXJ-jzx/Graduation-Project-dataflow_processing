@@ -12,25 +12,29 @@ ssh:
   user: "root"
   password: "123456"
 
+# ============================================================
+# ★ 参数搜索空间：高吞吐下需要调整范围
+# ============================================================
 parameter_space:
   checkpoint_interval:
-    min: 5000
+    type: int
+    min: 10000
     max: 120000
     step: 5000
     default: 30000
-    cli_arg: "checkpoint-interval"
   buffer_timeout:
-    min: 1
-    max: 200
+    type: int
+    min: 10
+    max: 500
     step: 10
     default: 100
-    cli_arg: "buffer-timeout"
   watermark_delay:
+    type: int
     min: 1000
-    max: 30000
+    max: 15000
     step: 1000
     default: 5000
-    cli_arg: "watermark-delay"
+
 
 metrics:
   collection:
@@ -55,24 +59,34 @@ feature_ranges:
   l2_occupancy: [0, 1.0]
   l3_hit_rate: [0, 1.0]
   l3_occupancy: [0, 1.0]
-  e2e_latency_p99_ms: [0, 2000]
+  e2e_latency_p99_ms: [ 0, 10000 ]     # ★ 原来 2000，4000r/s 下延迟会更高
 
+# ============================================================
+# objective：适配 4000 r/s 的延迟预期
+# ============================================================
 objective:
   weights:
-    latency: 0.40
+    latency: 0.35          # ★ 从 0.40 降到 0.35，高吞吐下延迟天然偏高
     throughput: 0.30
     checkpoint: 0.15
-    resource: 0.15
-  target_utilization: 0.7
+    resource: 0.20         # ★ 从 0.15 提到 0.20，资源利用率更重要
+  target_utilization: 0.3  # ★ 从 0.70 降到 0.65，filter 50-75% 时留余量
   sla_latency_ms: 5000
 
+
+# ============================================================
+# constraints：放宽背压约束
+# ============================================================
 constraints:
-  max_latency_p99_ms: 5000
-  max_backpressure: 0.80
+  max_latency_p99_ms: 8000   # ★ 从 5000 提到 8000，4000r/s 下延迟更高
+  max_backpressure: 0.90     # ★ 从 0.80 提到 0.90，否则大量轮次会被判定违约
+
 
 surrogate:
   warm_up_observations: 8
   max_observations: 200
+  gp_noise_floor: 0.01            # ★ 新增：GP 噪声下限
+  min_predict_sigma: 0.005        # ★ 新增：预测 σ 最小值
   gp:
     n_restarts_optimizer: 5
     alpha: 1.0e-6
@@ -81,6 +95,8 @@ surrogate:
     n_estimators: 100
     max_depth: 10
     min_samples_leaf: 2
+
+
 
 optimizer:
   n_candidates: 200
@@ -100,7 +116,7 @@ ds2:
   lock_timeout_seconds: 30
 
 timeouts:
-  savepoint: 60
+  savepoint: 120
   cancel: 60
   submit: 120
 
@@ -110,8 +126,10 @@ scheduler:
   interval_seconds: 60
   max_consecutive_failures: 3
   rollback_on_constraint_violation: true
-  warm_up_after_apply_seconds: 90
+  warm_up_after_apply_seconds: 120
   health_check_seconds: 60
+
+
 
 storage:
   csv_path: "E:/Desktop/bs_code/flink-rocketmq-demo/ML_Tuner/data/observations.csv"
@@ -122,22 +140,29 @@ rocketmq:
   home: "/usr/local/rocketmq"
   cluster: "RaftCluster"
   consumer_group_prefix: "seismic-flink-consumer-group"
-  deregister_wait_seconds: 15
+  deregister_wait_seconds: 10
   cleanup_old_consumer_group: true
+
 
 producer:
   enabled: true
-  main_class: "org.jzx.producer.SeismicProducer"
+  main_class: "org.jzx.producer.HighThroughputSeismicProducer"
   local_jar: "E:/Desktop/bs_code/flink-rocketmq-demo/target/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
   work_dir: "E:/Desktop/bs_code/flink-rocketmq-demo"
+  args: "4000"    # 目标速率，可调
+
 
 safety:
   efficiency_threshold: 0.02
-  et_min_observations: 12
+  et_min_observations: 20
   max_consecutive_failures: 3
   rollback_on_constraint_violation: true
   warm_up_after_apply_seconds: 90
   health_check_seconds: 60
+  max_consecutive_skips: 3         # ★ 新增：连续跳过 3 轮后强制探索
+  et_use_sigma_aware: true         # ★ 新增：ET 用 σ 感知判断
+
+
 
 
 logging:

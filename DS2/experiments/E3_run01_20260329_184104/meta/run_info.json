@@ -1,0 +1,48 @@
+{
+  "run_id": "E3_run01_20260329_184104",
+  "exp_name": "E3",
+  "exp_config": {
+    "name": "动态波动实验",
+    "description": "负载波动，验证DS2双向调节与防振荡。每阶段600s确保收敛。",
+    "ds2_enabled": true,
+    "duration_seconds": 1800,
+    "warmup_before_ds2": 30,
+    "drain_seconds": 60,
+    "repeat": 1,
+    "parallelism": {
+      "p-source": 4,
+      "p-filter": 3,
+      "p-signal": 3,
+      "p-feature": 2,
+      "p-grid": 2,
+      "p-sink": 1
+    },
+    "load_profile": [
+      {
+        "name": "low_phase",
+        "rate": 2000,
+        "duration": 600
+      },
+      {
+        "name": "high_phase",
+        "rate": 6000,
+        "duration": 600
+      },
+      {
+        "name": "low_phase_2",
+        "rate": 2000,
+        "duration": 600
+      }
+    ]
+  },
+  "start_time": "2026-03-29T18:41:04.777243",
+  "parallelism": {
+    "p-source": 4,
+    "p-filter": 3,
+    "p-signal": 3,
+    "p-feature": 2,
+    "p-grid": 2,
+    "p-sink": 1
+  },
+  "ds2_enabled": true
+}

@@ -59,6 +59,7 @@ class FeatureEngineer:
         # 无需修改，cfg 本身就是完整配置
 
 
+
         # 特征归一化范围
         self.feature_ranges = {}
         for name in self.FEATURE_NAMES:
@@ -86,6 +87,20 @@ class FeatureEngineer:
 
         logger.info("特征工程初始化完成: %d 维特征, 权重=%s",
                      len(self.FEATURE_NAMES), self.weights)
+
+        # ★ 新增：从 producer 配置读取固定基线
+        producer_cfg = cfg.get('producer', {})
+        producer_rate = producer_cfg.get('args', '')
+        try:
+            self._fixed_throughput_baseline = float(producer_rate)
+        except (ValueError, TypeError):
+            self._fixed_throughput_baseline = 0.0
+
+        # 吞吐量基线（动态更新，但不低于固定基线）
+        self.max_throughput_baseline = self._fixed_throughput_baseline
+
+        logger.info("特征工程初始化完成: %d 维特征, 权重=%s, 吞吐量固定基线=%.0f",
+                    len(self.FEATURE_NAMES), self.weights, self._fixed_throughput_baseline)
 
     # ==========================================
     # 采样聚合
@@ -151,23 +166,6 @@ class FeatureEngineer:
     # ==========================================
 
     def compute_objective(self, x_raw: Dict[str, float]) -> Tuple[float, Dict[str, float]]:
-        """
-        计算加权多目标函数 J（越小越好）
-
-        J = w_lat * f_lat + w_thr * f_thr + w_ckp * f_ckp + w_res * f_res
-
-        各子目标归一化到 [0, 1]：
-          f_lat = latency_p99 / sla_latency_ms
-          f_thr = 1 - throughput / max_throughput
-          f_ckp = checkpoint_avg_dur / sla_latency_ms
-          f_res = |avg_busy - target| / target
-
-        Args:
-            x_raw: 原始特征字典
-
-        Returns:
-            (J_total, J_parts): 总目标值 和 各子目标值字典
-        """
         latency_p99 = float(
             x_raw.get('e2e_latency_p99_ms', x_raw.get('latency_p99', 0.0))
         )
@@ -178,22 +176,22 @@ class FeatureEngineer:
         # --- 子目标1: 延迟 ---
         f_lat = min(latency_p99 / self.sla_latency_ms, 2.0)
 
-        # --- 子目标2: 吞吐量损失 ---
+        # --- 子目标2: 吞吐量损失 ---                           ★ 修改
+        # 动态更新，但不低于固定基线
         if avg_input_rate > self.max_throughput_baseline:
             self.max_throughput_baseline = avg_input_rate
             logger.info("吞吐量基线更新: %.0f records/s", self.max_throughput_baseline)
 
-        if self.max_throughput_baseline > 0:
-            f_thr = 1.0 - (avg_input_rate / self.max_throughput_baseline)
-            f_thr = max(0.0, min(f_thr, 1.0))
-        else:
-            f_thr = 0.5
+        baseline = max(self.max_throughput_baseline, self._fixed_throughput_baseline, 1.0)
+
+        f_thr = 1.0 - (avg_input_rate / baseline)
+        f_thr = max(0.0, min(f_thr, 1.0))
 
         # --- 子目标3: Checkpoint 开销 ---
         f_ckp = min(checkpoint_avg_dur / self.sla_latency_ms, 2.0)
 
         # --- 子目标4: 资源利用偏离度 ---
-        f_res = abs(avg_busy_ratio - self.target_utilization) / self.target_utilization
+        f_res = abs(avg_busy_ratio - self.target_utilization) / max(self.target_utilization, 0.01)
         f_res = min(f_res, 2.0)
 
         # --- 加权汇总 ---
@@ -211,6 +209,7 @@ class FeatureEngineer:
         }
 
         return j_total, j_parts
+
 
     # ==========================================
     # 约束检查

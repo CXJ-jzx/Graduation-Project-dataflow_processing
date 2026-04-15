@@ -236,3 +236,16 @@ class ParameterSpace:
         for name, p in self.params.items():
             lines.append(f"  {name}: [{p['min']}, {p['max']}] step={p['step']}")
         return "\n".join(lines)
+
+    def sample_random_single(self) -> Optional[Dict[str, float]]:
+        """随机采样一个参数配置"""
+        import random
+        theta = {}
+        for name, info in self.params.items():
+            low = info['min']
+            high = info['max']
+            step = info.get('step', 1)
+            n_steps = int((high - low) / step)
+            theta[name] = low + random.randint(0, n_steps) * step
+        return theta
+

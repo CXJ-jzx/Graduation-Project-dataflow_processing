@@ -1,0 +1,4 @@
+timestamp,elapsed,phase_name,rate,event
+1774872553.5213735,0,low_phase,2000,phase_start
+1774873153.523543,600.0011384487152,high_phase,6000,phase_switch
+1774873753.525137,1200.0011749267578,low_phase_2,2000,phase_switch

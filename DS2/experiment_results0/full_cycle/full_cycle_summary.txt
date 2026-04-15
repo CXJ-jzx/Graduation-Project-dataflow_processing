@@ -1,0 +1,61 @@
+============================================================
+  扩缩容综合测试 - Summary
+============================================================
+  Time: 2026-04-02T11:30:50.924444
+  Scenario: 低并行度(P=2)先高负载(10000r/s*8min), 再低负载(2000r/s*15min)
+
+--- Fixed Parallelism ---
+  Config: {'p-source': 4, 'p-filter': 4, 'p-signal': 4, 'p-feature': 4, 'p-grid': 4, 'p-sink': 2}
+  Avg throughput : 6241.3 r/s
+  Max throughput : 13160.9 r/s
+  Avg busy       : 0.232
+  Avg slots      : 4.0
+  Slot range     : [4, 4]
+  Resource cost  : 112.0 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [4, 4]
+    Grid-Aggregation              : [4, 4]
+    Hardware-Filter               : [4, 4]
+    Signal-Extraction             : [4, 4]
+    Sink                          : [2, 2]
+    Source                        : [4, 4]
+    Watermark-Assigner            : [4, 4]
+
+--- DS2 Auto-Scaling ---
+  Config: {'p-source': 2, 'p-filter': 2, 'p-signal': 2, 'p-feature': 2, 'p-grid': 2, 'p-sink': 1}
+  Avg throughput : 4731.5 r/s
+  Max throughput : 14139.8 r/s
+  Avg busy       : 0.301
+  Avg slots      : 2.1
+  Slot range     : [2, 3]
+  Resource cost  : 41.2 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [2, 3] <- dynamic
+    Grid-Aggregation              : [2, 3] <- dynamic
+    Hardware-Filter               : [2, 3] <- dynamic
+    Signal-Extraction             : [2, 3] <- dynamic
+    Sink                          : [1, 2] <- dynamic
+    Source                        : [2, 3] <- dynamic
+    Watermark-Assigner            : [2, 3] <- dynamic
+
+--- Comparison ---
+  Throughput diff : -24.2%
+  Slot diff       : -47.8%
+  Fixed efficiency: 1560.3 r/s/slot
+  DS2 efficiency  : 2265.4 r/s/slot
+  Efficiency gain : +45.2%
+  Resource compare: Fixed=112.0 vs DS2=41.2 slot*min
+  Resource saved: 70.8 slot*min (63.2%)
+
+--- Full-Cycle Detail ---
+  DS2 slot range  : [2, 3]
+  Dynamic operators:
+    Feature-Extraction: 2 -> 3
+    Grid-Aggregation: 2 -> 3
+    Hardware-Filter: 2 -> 3
+    Signal-Extraction: 2 -> 3
+    Sink: 1 -> 2
+    Source: 2 -> 3
+    Watermark-Assigner: 2 -> 3
+
+============================================================

@@ -1,0 +1,154 @@
+# ds2_experiment_config.yaml
+
+flink:
+  rest_url: "http://192.168.56.151:8081"
+  flink_home: "/opt/app/flink-1.17.2"
+  jar_path: "/opt/flink_jobs/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
+  main_class: "org.jzx.SeismicStreamJob"
+  job_name: "SeismicStreamJob"
+
+ssh:
+  host: "192.168.56.151"
+  port: 22
+  user: "root"
+  password: "123456"    # 填你的密码
+
+rocketmq:
+  home: "/usr/local/rocketmq"
+  cluster: "RaftCluster"
+  namesrv_addr: "192.168.56.151:9876"
+  consumer_group_prefix: "seismic-flink-consumer-group"
+  deregister_wait_seconds: 15
+  cleanup_old_consumer_group: true
+
+
+
+producer:
+  main_class: "org.jzx.producer.HighThroughputSeismicProducer"
+  local_jar: "../target/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
+  work_dir: ".."
+  namesrv_addr: "192.168.56.151:9876"
+
+
+ds2_controller:
+  script_path: "ds2_controller.py"
+  config_path: "ds2_config.yaml"
+
+# ============================================================
+# 实验定义
+# ============================================================
+experiments:
+
+  E1:
+    name: "DS2扩容实验-恒定高负载"
+    ds2_enabled: true
+    duration_seconds: 900
+    warmup_before_ds2: 30
+    drain_seconds: 60
+    parallelism:
+      # 故意设低，让 DS2 识别瓶颈并扩容
+      p-source: 2
+      p-filter: 2        # 瓶颈候选，起始低
+      p-signal: 2        # 瓶颈候选，起始低
+      p-feature: 2       # 下游也从低开始
+      p-grid: 2
+      p-sink: 1
+    load_profile:
+      - name: "恒定高负载"
+        rate: 6000
+        duration: 900
+
+    C1:
+      name: "对照实验-固定并行度"
+      ds2_enabled: false
+      duration_seconds: 900
+      warmup_before_ds2: 30
+      drain_seconds: 60
+      parallelism:
+        # 与 E1 起始相同，但不开 DS2
+        p-source: 2
+        p-filter: 2
+        p-signal: 2
+        p-feature: 2
+        p-grid: 2
+        p-sink: 1
+      load_profile:
+        - name: "恒定高负载"
+          rate: 6000
+          duration: 900
+
+  E2:
+    name: "缩容实验"
+    description: "低负载恒定输入，验证DS2缩容能力"
+    ds2_enabled: true
+    duration_seconds: 600
+    warmup_before_ds2: 30
+    drain_seconds: 60
+    repeat: 1
+
+    parallelism:
+      p-source: 6
+      p-filter: 8
+      p-signal: 8
+      p-feature: 4
+      p-grid: 4
+      p-sink: 2
+
+    load_profile:
+      - name: "low_pressure"
+        rate: 2000
+        duration: 600
+
+  C2:
+    name: "静态高配对照"
+    description: "与E2同负载同初始并行度，不启动DS2"
+    ds2_enabled: false
+    duration_seconds: 600
+    warmup_before_ds2: 0
+    drain_seconds: 60
+    repeat: 1
+
+    parallelism:
+      p-source: 6
+      p-filter: 8
+      p-signal: 8
+      p-feature: 4
+      p-grid: 4
+      p-sink: 2
+
+    load_profile:
+      - name: "low_pressure"
+        rate: 2000
+        duration: 600
+
+  E3:
+    name: "动态波动实验"
+    description: "负载波动，验证DS2双向调节与防振荡"
+    ds2_enabled: true
+    duration_seconds: 900
+    warmup_before_ds2: 30
+    drain_seconds: 60
+    repeat: 1
+
+    parallelism:
+      p-source: 6
+      p-filter: 3
+      p-signal: 3
+      p-feature: 4
+      p-grid: 4
+      p-sink: 2
+
+    load_profile:
+      - name: "low_phase"
+        rate: 2000
+        duration: 300
+      - name: "high_phase"
+        rate: 6000
+        duration: 300
+      - name: "low_phase_2"
+        rate: 2000
+        duration: 300
+
+# 指标采集
+metrics:
+  collect_interval: 10    # 每10s采集一次

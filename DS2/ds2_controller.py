@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-DS2 自动扩缩容控制器（算子级并行度版）
-=========================================
+DS2 自动扩缩容控制器（算子级并行度版）—— P10 修复版
+=========================================================
 基于 OSDI '18 论文 "Three Steps is All You Need" 实现
 适配 Apache Flink 1.17 Standalone 集群
 
-第一批改进：
-  P1: 全局并行度 -> 算子级并行度（通过 programArgs 下发）
-  P2: 作业名统一为 Seismic-Stream-Job
+修复记录:
+  P1~P7: (略)
+  P8:  方向锁 + 重启跳轮 — 消除扩→缩震荡
+  P9:  累计扩容冷却 — 减少碎步连续扩容
+  P10: 高负载保护 — Source 吞吐 >= 容量*70% 时禁止一切缩容
+       方向锁 300s, penalty 180s
 """
 
 import os
@@ -39,38 +42,53 @@ except ImportError:
 
 @dataclass
 class OperatorConfig:
-    """单个算子的配置"""
-    keyword: str            # 在 Flink vertex name 中做包含匹配的关键字
-    arg_name: str           # 对应的命令行参数名，如 p-source
+    keyword: str
+    arg_name: str
     default_parallelism: int = 4
 
 
 @dataclass
 class Config:
-    """DS2 全局配置"""
 
-    # Flink 集群
     flink_rest_url: str = "http://localhost:8081"
     flink_job_name: str = "Seismic-Stream-Job"
     flink_savepoint_dir: str = "/tmp/flink-savepoints"
 
-    # DS2 核心参数
     policy_interval: int = 15
-    warm_up_time: int = 30
-    activation_window: int = 3
-    target_rate_ratio: float = 1.5
+    warm_up_time: int = 120
+    activation_window: int = 2
+    target_rate_ratio: float = 1.3
     min_busy_ratio: float = 0.05
-    # 新增字段（P3修复）
-    idle_busy_threshold: float = 0.1  # 低于此值视为 idle，与 min_busy_ratio 职责分离
-    max_parallelism: int = 16
-    min_parallelism: int = 1
+    idle_busy_threshold: float = 0.15
+    max_parallelism: int = 8
+    min_parallelism: int = 2
     change_threshold: int = 0
     target_jar_name: str = "flink-rocketmq-demo-1.0-SNAPSHOT"
 
-    # 算子映射
-    operator_mapping: Dict[str, OperatorConfig] = field(default_factory=dict)
+    max_scale_factor: float = 3.0
+    recovery_busy_threshold: float = 0.95
+    recovery_throughput_min: float = 100.0
+    min_significant_busy: float = 0.30
+    initial_grace_period: int = 60
 
-    # 日志
+    source_capacity_per_instance: float = 2000.0
+    source_max_parallelism: int = 8
+
+    use_savepoint: bool = True
+    wait_running_timeout: int = 90
+
+    # P8
+    direction_lock_seconds: int = 300
+    post_restart_skip_rounds: int = 3
+
+    # P9
+    consecutive_scale_limit: int = 2
+    consecutive_scale_penalty: int = 180
+
+    # ★ P10: 高负载保护
+    high_load_protection_ratio: float = 0.70
+
+    operator_mapping: Dict[str, OperatorConfig] = field(default_factory=dict)
     log_level: str = "INFO"
 
     @classmethod
@@ -91,37 +109,113 @@ class Config:
 
             if 'flink' in data:
                 flink = data['flink']
-                config.flink_rest_url = flink.get('rest_url', config.flink_rest_url)
-                config.flink_job_name = flink.get('job_name', config.flink_job_name)
-                config.flink_savepoint_dir = flink.get('savepoint_dir', config.flink_savepoint_dir)
+                config.flink_rest_url = flink.get(
+                    'rest_url', config.flink_rest_url)
+                config.flink_job_name = flink.get(
+                    'job_name', config.flink_job_name)
+                config.flink_savepoint_dir = flink.get(
+                    'savepoint_dir', config.flink_savepoint_dir)
 
             if 'ds2' in data:
                 ds2 = data['ds2']
-                config.policy_interval    = ds2.get('policy_interval',    config.policy_interval)
-                config.warm_up_time       = ds2.get('warm_up_time',       config.warm_up_time)
-                config.activation_window  = ds2.get('activation_window',  config.activation_window)
-                config.target_rate_ratio  = ds2.get('target_rate_ratio',  config.target_rate_ratio)
-                config.min_busy_ratio     = ds2.get('min_busy_ratio',     config.min_busy_ratio)
-                config.idle_busy_threshold = ds2.get('idle_busy_threshold', config.idle_busy_threshold)  # 新增
+                config.policy_interval = ds2.get(
+                    'policy_interval', config.policy_interval)
+                config.warm_up_time = ds2.get(
+                    'warm_up_time', config.warm_up_time)
+                config.activation_window = ds2.get(
+                    'activation_window', config.activation_window)
+                config.target_rate_ratio = ds2.get(
+                    'target_rate_ratio', config.target_rate_ratio)
+                config.min_busy_ratio = ds2.get(
+                    'min_busy_ratio', config.min_busy_ratio)
+                config.idle_busy_threshold = ds2.get(
+                    'idle_busy_threshold', config.idle_busy_threshold)
+                config.max_parallelism = ds2.get(
+                    'max_parallelism', config.max_parallelism)
+                config.min_parallelism = ds2.get(
+                    'min_parallelism', config.min_parallelism)
+                config.change_threshold = ds2.get(
+                    'change_threshold', config.change_threshold)
+                config.target_jar_name = ds2.get(
+                    'target_jar_name', config.target_jar_name)
 
-                config.max_parallelism    = ds2.get('max_parallelism',    config.max_parallelism)
-                config.min_parallelism    = ds2.get('min_parallelism',    config.min_parallelism)
-                config.change_threshold   = ds2.get('change_threshold',   config.change_threshold)
-                config.target_jar_name    = ds2.get('target_jar_name',    config.target_jar_name)
+                config.max_scale_factor = ds2.get(
+                    'max_scale_factor', config.max_scale_factor)
+                config.recovery_busy_threshold = ds2.get(
+                    'recovery_busy_threshold',
+                    config.recovery_busy_threshold)
+                config.recovery_throughput_min = ds2.get(
+                    'recovery_throughput_min',
+                    config.recovery_throughput_min)
+                config.min_significant_busy = ds2.get(
+                    'min_significant_busy', config.min_significant_busy)
+                config.initial_grace_period = ds2.get(
+                    'initial_grace_period', config.initial_grace_period)
+
+                config.source_capacity_per_instance = ds2.get(
+                    'source_capacity_per_instance',
+                    config.source_capacity_per_instance)
+                config.source_max_parallelism = ds2.get(
+                    'source_max_parallelism',
+                    config.source_max_parallelism)
+
+                config.use_savepoint = ds2.get(
+                    'use_savepoint', config.use_savepoint)
+                config.wait_running_timeout = ds2.get(
+                    'wait_running_timeout', config.wait_running_timeout)
+
+                config.direction_lock_seconds = ds2.get(
+                    'direction_lock_seconds',
+                    config.direction_lock_seconds)
+                config.post_restart_skip_rounds = ds2.get(
+                    'post_restart_skip_rounds',
+                    config.post_restart_skip_rounds)
+
+                config.consecutive_scale_limit = ds2.get(
+                    'consecutive_scale_limit',
+                    config.consecutive_scale_limit)
+                config.consecutive_scale_penalty = ds2.get(
+                    'consecutive_scale_penalty',
+                    config.consecutive_scale_penalty)
+
+                # ★ P10
+                config.high_load_protection_ratio = ds2.get(
+                    'high_load_protection_ratio',
+                    config.high_load_protection_ratio)
+
+                if 'cooldown_seconds' in ds2:
+                    config.warm_up_time = ds2['cooldown_seconds']
 
             if 'operator_mapping' in data:
                 for key, val in data['operator_mapping'].items():
                     config.operator_mapping[key] = OperatorConfig(
                         keyword=val.get('keyword', key),
                         arg_name=val.get('arg_name', f'p-{key}'),
-                        default_parallelism=val.get('default_parallelism', 4)
+                        default_parallelism=val.get(
+                            'default_parallelism', 4),
                     )
 
             if 'logging' in data:
-                config.log_level = data['logging'].get('level', config.log_level)
+                config.log_level = data['logging'].get(
+                    'level', config.log_level)
 
             print(f"[INFO] Config loaded from {path}")
-            print(f"[INFO] Operator mappings: {list(config.operator_mapping.keys())}")
+            print(f"[INFO] Operator mappings: "
+                  f"{list(config.operator_mapping.keys())}")
+            print(f"[INFO] Source capacity: "
+                  f"{config.source_capacity_per_instance} r/s/instance")
+            print(f"[INFO] Source max parallelism: "
+                  f"{config.source_max_parallelism}")
+            print(f"[INFO] Use savepoint: {config.use_savepoint}")
+            print(f"[INFO] Direction lock: "
+                  f"{config.direction_lock_seconds}s")
+            print(f"[INFO] Post-restart skip rounds: "
+                  f"{config.post_restart_skip_rounds}")
+            print(f"[INFO] Consecutive scale limit: "
+                  f"{config.consecutive_scale_limit}, "
+                  f"penalty: {config.consecutive_scale_penalty}s")
+            print(f"[INFO] High-load protection ratio: "
+                  f"{config.high_load_protection_ratio}")
 
         except Exception as e:
             print(f"[WARN] Failed to load config: {e}, using defaults")
@@ -129,15 +223,24 @@ class Config:
         return config
 
     def validate(self) -> bool:
-        assert self.policy_interval >= 5,          "policy_interval must be >= 5"
-        assert self.warm_up_time >= 0,             "warm_up_time must be >= 0"
-        assert self.activation_window >= 1,        "activation_window must be >= 1"
-        assert 1.0 <= self.target_rate_ratio <= 2.0, "target_rate_ratio must be in [1.0, 2.0]"
-        assert self.max_parallelism >= self.min_parallelism, "max >= min parallelism"
+        assert self.policy_interval >= 5
+        assert self.warm_up_time >= 0
+        assert self.activation_window >= 1
+        assert 1.0 <= self.target_rate_ratio <= 2.0
+        assert self.max_parallelism >= self.min_parallelism
+        assert self.max_scale_factor >= 1.0
+        assert self.source_capacity_per_instance > 0
+        assert self.source_max_parallelism >= 1
+        assert self.direction_lock_seconds >= 0
+        assert self.post_restart_skip_rounds >= 0
+        assert self.consecutive_scale_limit >= 1
+        assert self.consecutive_scale_penalty >= 0
+        assert 0.0 < self.high_load_protection_ratio <= 1.0
         return True
 
-    def find_operator_config(self, vertex_name: str) -> Optional[OperatorConfig]:
-        """在 vertex_name 中做关键字包含匹配，返回对应算子配置"""
+    def find_operator_config(
+        self, vertex_name: str
+    ) -> Optional[OperatorConfig]:
         for key, op_config in self.operator_mapping.items():
             if op_config.keyword in vertex_name:
                 return op_config
@@ -150,31 +253,24 @@ class Config:
 
 @dataclass
 class OperatorMetrics:
-    """算子运行时指标容器"""
     vertex_id: str
     vertex_name: str
     parallelism: int
 
-    # 差分计算得到的速率
     records_in_per_second: float = 0.0
     records_out_per_second: float = 0.0
     busy_ratio: float = 0.0
 
-    # DS2 推导指标
     true_processing_rate: float = 0.0
     true_output_rate: float = 0.0
     selectivity: float = 1.0
 
-    # 关联的命令行参数名
     arg_name: str = ""
-
-    # 本轮是否有有效指标
     has_valid_metrics: bool = False
 
 
 @dataclass
 class ScalingDecision:
-    """单个算子的扩缩容决策"""
     vertex_id: str
     vertex_name: str
     arg_name: str
@@ -194,14 +290,21 @@ class ScalingDecision:
             return "SCALE_DOWN"
         return "NO_CHANGE"
 
+    @property
+    def direction(self) -> str:
+        if self.target_parallelism > self.current_parallelism:
+            return "UP"
+        elif self.target_parallelism < self.current_parallelism:
+            return "DOWN"
+        return "NONE"
+
 
 @dataclass
 class JobTopology:
-    """Flink 作业拓扑图"""
     job_id: str
     job_name: str
     vertices: Dict[str, OperatorMetrics] = field(default_factory=dict)
-    edges: List[Tuple[str, str]] = field(default_factory=list)   # (src_id, dst_id)
+    edges: List[Tuple[str, str]] = field(default_factory=list)
 
     def get_upstream(self, vertex_id: str) -> List[str]:
         return [e[0] for e in self.edges if e[1] == vertex_id]
@@ -225,7 +328,6 @@ class JobTopology:
                 if in_degree[downstream] == 0:
                     queue.append(downstream)
 
-        # 出现环路时退化为原始顺序
         if len(result) != len(self.vertices):
             return list(self.vertices.keys())
 
@@ -254,26 +356,22 @@ class FlinkClient:
         })
         self.logger = logging.getLogger("DS2.FlinkClient")
 
-    # ------------------------------------------------------------------
-    # 底层 HTTP 封装
-    # ------------------------------------------------------------------
-
     def _get(self, endpoint: str, timeout: int = 10) -> Optional[Dict]:
         url = f"{self.base_url}{endpoint}"
         try:
             resp = self.session.get(url, timeout=timeout)
             if resp.status_code == 200:
                 return resp.json()
-            self.logger.debug(f"GET {endpoint} -> {resp.status_code}")
+            self.logger.debug("GET %s -> %d", endpoint, resp.status_code)
             return None
         except requests.exceptions.Timeout:
-            self.logger.warning(f"GET {endpoint} timeout")
+            self.logger.warning("GET %s timeout", endpoint)
             return None
         except requests.exceptions.ConnectionError:
-            self.logger.warning(f"GET {endpoint} connection failed")
+            self.logger.warning("GET %s connection failed", endpoint)
             return None
         except Exception as e:
-            self.logger.debug(f"GET {endpoint} error: {e}")
+            self.logger.debug("GET %s error: %s", endpoint, e)
             return None
 
     def _post(self, endpoint: str, data: Optional[Dict] = None,
@@ -285,7 +383,7 @@ class FlinkClient:
             body = resp.json() if resp.text.strip() else {}
             return ok, body
         except Exception as e:
-            self.logger.error(f"POST {endpoint} error: {e}")
+            self.logger.error("POST %s error: %s", endpoint, e)
             return False, None
 
     def _patch(self, endpoint: str, timeout: int = 30) -> bool:
@@ -294,17 +392,18 @@ class FlinkClient:
             resp = self.session.patch(url, timeout=timeout)
             return resp.status_code < 400
         except Exception as e:
-            self.logger.error(f"PATCH {endpoint} error: {e}")
+            self.logger.error("PATCH %s error: %s", endpoint, e)
             return False
-
-    # ------------------------------------------------------------------
-    # 集群信息
-    # ------------------------------------------------------------------
 
     def check_connection(self) -> bool:
         data = self._get("/overview")
         if data:
-            self.logger.info(f"Connected to Flink {data.get('flink-version', 'unknown')}")
+            self.logger.info(
+                "Connected to Flink %s, slots=%s, taskmanagers=%s",
+                data.get('flink-version', 'unknown'),
+                data.get('slots-total', '?'),
+                data.get('taskmanagers', '?'),
+            )
             return True
         return False
 
@@ -316,22 +415,20 @@ class FlinkClient:
             if (job.get('name') == self.config.flink_job_name
                     and job.get('state') == 'RUNNING'):
                 return job['jid']
-        self.logger.debug(f"No running job named '{self.config.flink_job_name}'")
+        self.logger.debug(
+            "No running job named '%s'", self.config.flink_job_name)
         return None
-
-    # ------------------------------------------------------------------
-    # 拓扑
-    # ------------------------------------------------------------------
 
     def get_job_topology(self, job_id: str) -> Optional[JobTopology]:
         data = self._get(f"/jobs/{job_id}")
         if not data:
             return None
 
-        topology = JobTopology(job_id=job_id, job_name=data.get('name', ''))
+        topology = JobTopology(
+            job_id=job_id, job_name=data.get('name', ''))
 
         for vertex in data.get('vertices', []):
-            vid   = vertex['id']
+            vid = vertex['id']
             vname = vertex['name']
             op_cfg = self.config.find_operator_config(vname)
             arg_name = op_cfg.arg_name if op_cfg else ""
@@ -351,25 +448,20 @@ class FlinkClient:
 
         return topology
 
-    # ------------------------------------------------------------------
-    # 指标
-    # ------------------------------------------------------------------
-
-    def get_vertex_metrics(self, job_id: str, vertex_id: str) -> Dict[str, List[float]]:
-        """
-        获取算子各 subtask 的累积指标值列表。
-        返回 {metric_name: [subtask0_value, subtask1_value, ...]}
-        """
+    def get_vertex_metrics(self, job_id: str,
+                           vertex_id: str) -> Dict[str, List[float]]:
         params = "?get=" + ",".join(self.REQUIRED_METRICS)
-        endpoint = f"/jobs/{job_id}/vertices/{vertex_id}/subtasks/metrics"
+        endpoint = (f"/jobs/{job_id}/vertices/{vertex_id}"
+                     f"/subtasks/metrics")
         data = self._get(endpoint + params)
         if not data:
             return {}
 
-        result: Dict[str, List[float]] = {m: [] for m in self.REQUIRED_METRICS}
+        result: Dict[str, List[float]] = {
+            m: [] for m in self.REQUIRED_METRICS
+        }
 
         def safe_float(val) -> float:
-            """安全转换，处理 NaN / null / 非数字"""
             if val is None:
                 return 0.0
             s = str(val).strip()
@@ -383,7 +475,8 @@ class FlinkClient:
             except (ValueError, TypeError):
                 return 0.0
 
-        if isinstance(data, list) and data and 'metrics' in data[0]:
+        if (isinstance(data, list) and data
+                and 'metrics' in data[0]):
             for subtask in data:
                 row: Dict[str, float] = {}
                 for m in subtask.get('metrics', []):
@@ -395,57 +488,64 @@ class FlinkClient:
             for m in data:
                 mid = m.get('id', '')
                 if mid in self.REQUIRED_METRICS:
-                    agg[mid] = safe_float(m.get('sum', m.get('value', 0)))
+                    agg[mid] = safe_float(
+                        m.get('sum', m.get('value', 0)))
             for metric in self.REQUIRED_METRICS:
                 result[metric].append(agg.get(metric, 0.0))
 
         return result
 
-    # ------------------------------------------------------------------
-    # Savepoint / Cancel / Submit
-    # ------------------------------------------------------------------
-
     def trigger_savepoint(self, job_id: str) -> Optional[str]:
         self.logger.info("Triggering savepoint ...")
-        self.logger.info(f"  target dir: {self.config.flink_savepoint_dir}")
+        self.logger.info(
+            "  target dir: %s", self.config.flink_savepoint_dir)
 
         ok, resp = self._post(
             f"/jobs/{job_id}/savepoints",
-            {"target-directory": self.config.flink_savepoint_dir, "cancel-job": False},
+            {
+                "target-directory": self.config.flink_savepoint_dir,
+                "cancel-job": False,
+            },
         )
         if not ok or not resp:
-            self.logger.error(f"Savepoint trigger failed: {resp}")
+            self.logger.error("Savepoint trigger failed: %s", resp)
             return None
 
         trigger_id = resp.get("request-id")
         if not trigger_id:
-            self.logger.error(f"No request-id in response: {resp}")
+            self.logger.error("No request-id in response: %s", resp)
             return None
 
         for _ in range(60):
             time.sleep(1)
-            status = self._get(f"/jobs/{job_id}/savepoints/{trigger_id}")
+            status = self._get(
+                f"/jobs/{job_id}/savepoints/{trigger_id}")
             if not status:
                 continue
             state = status.get("status", {}).get("id")
             if state == "COMPLETED":
-                location = status.get("operation", {}).get("location")
+                location = (status.get("operation", {})
+                            .get("location"))
                 if not location:
-                    cause = status.get("operation", {}).get("failure-cause", {})
-                    self.logger.error(f"Savepoint completed but no location: {cause}")
+                    cause = (status.get("operation", {})
+                             .get("failure-cause", {}))
+                    self.logger.error(
+                        "Savepoint completed but no location: %s",
+                        cause)
                     return None
-                self.logger.info(f"Savepoint done: {location}")
+                self.logger.info("Savepoint done: %s", location)
                 return location
             elif state == "FAILED":
-                cause = status.get("operation", {}).get("failure-cause", {})
-                self.logger.error(f"Savepoint failed: {cause}")
+                cause = (status.get("operation", {})
+                         .get("failure-cause", {}))
+                self.logger.error("Savepoint failed: %s", cause)
                 return None
 
         self.logger.error("Savepoint timeout (60 s)")
         return None
 
     def cancel_job(self, job_id: str) -> bool:
-        self.logger.info(f"Cancelling job {job_id} ...")
+        self.logger.info("Cancelling job %s ...", job_id)
         if not self._patch(f"/jobs/{job_id}?mode=cancel"):
             self.logger.error("Cancel request failed")
             return False
@@ -453,7 +553,9 @@ class FlinkClient:
         for _ in range(30):
             time.sleep(1)
             data = self._get(f"/jobs/{job_id}")
-            if data and data.get("state") in ("CANCELED", "CANCELLED", "FINISHED"):
+            if data and data.get("state") in (
+                "CANCELED", "CANCELLED", "FINISHED"
+            ):
                 self.logger.info("Job cancelled")
                 return True
 
@@ -467,16 +569,13 @@ class FlinkClient:
         for jar in data.get("files", []):
             if self.config.target_jar_name in jar.get("name", ""):
                 return jar.get("id")
-        self.logger.warning(f"JAR not found: {self.config.target_jar_name}")
+        self.logger.warning(
+            "JAR not found: %s", self.config.target_jar_name)
         return None
 
     def submit_job(self, jar_id: str, parallelism: int,
                    savepoint_path: Optional[str] = None,
                    program_args: str = "") -> Optional[str]:
-        """
-        提交作业。
-        program_args 示例: "--p-source 2 --p-filter 6 --p-signal 4 ..."
-        """
         body = {
             "parallelism": parallelism,
             "programArgs": program_args,
@@ -484,17 +583,34 @@ class FlinkClient:
             "savepointPath": savepoint_path or "",
             "allowNonRestoredState": True,
         }
-        self.logger.info(f"Submitting job: global_parallelism={parallelism}")
-        self.logger.info(f"  programArgs : {program_args}")
+        self.logger.info(
+            "Submitting job: global_parallelism=%d", parallelism)
+        self.logger.info("  programArgs : %s", program_args)
         if savepoint_path:
-            self.logger.info(f"  savepoint   : {savepoint_path}")
+            self.logger.info("  savepoint   : %s", savepoint_path)
 
-        ok, resp = self._post(f"/jars/{jar_id}/run", body, timeout=60)
+        ok, resp = self._post(
+            f"/jars/{jar_id}/run", body, timeout=60)
         if ok and resp:
             new_jid = resp.get("jobid")
-            self.logger.info(f"Job submitted: {new_jid}")
+            self.logger.info("Job submitted: %s", new_jid)
             return new_jid
-        self.logger.error(f"Job submission failed: {resp}")
+        self.logger.error("Job submission failed: %s", resp)
+        return None
+
+    def wait_job_running(self, timeout: int = 90) -> Optional[str]:
+        self.logger.info(
+            "Waiting for job '%s' to become RUNNING (timeout=%ds) ...",
+            self.config.flink_job_name, timeout)
+        for i in range(timeout // 3):
+            time.sleep(3)
+            job_id = self.get_running_job_id()
+            if job_id:
+                self.logger.info(
+                    "Job RUNNING: %s (waited %ds)", job_id, (i + 1) * 3)
+                return job_id
+        self.logger.error(
+            "Timeout waiting for job RUNNING (%ds)", timeout)
         return None
 
 
@@ -503,10 +619,6 @@ class FlinkClient:
 # ============================================================================
 
 class MetricsCollector:
-    """
-    两次采样之差 / 时间间隔 = 瞬时速率。
-    不依赖 Flink 内置的 perSecond 指标（部分版本不准确）。
-    """
 
     def __init__(self, client: FlinkClient, config: Config):
         self.client = client
@@ -514,35 +626,50 @@ class MetricsCollector:
         self.logger = logging.getLogger("DS2.Metrics")
         self._prev_snapshot: Dict[str, Dict[str, float]] = {}
         self._prev_time: float = 0.0
+        self._skip_rounds: int = 0
 
     def reset(self):
         self._prev_snapshot.clear()
         self._prev_time = 0.0
-        self.logger.info("Metrics collector reset")
+        self._skip_rounds = self.config.post_restart_skip_rounds
+        self.logger.info(
+            "Metrics collector reset (skip next %d rounds)",
+            self._skip_rounds)
+
+    def has_enough_samples(self) -> bool:
+        return bool(self._prev_snapshot) and self._prev_time > 0
 
     def collect(self, topology: JobTopology) -> bool:
-        """
-        采集一轮指标并将速率写入 topology.vertices 的各 OperatorMetrics。
-        首轮调用无法计算差分，返回 False；第二轮起返回 True（如有有效数据）。
-        """
+        if self._skip_rounds > 0:
+            self._skip_rounds -= 1
+            self.logger.info(
+                "  [SKIP] Post-restart skip round "
+                "(remaining %d rounds)", self._skip_rounds)
+            self._collect_snapshot_only(topology)
+            return False
+
         now = time.time()
         current_snapshot: Dict[str, Dict[str, float]] = {}
-        has_prev = bool(self._prev_snapshot) and self._prev_time > 0
+        has_prev = (bool(self._prev_snapshot)
+                    and self._prev_time > 0)
 
         for vid, metrics in topology.vertices.items():
-            raw = self.client.get_vertex_metrics(topology.job_id, vid)
+            raw = self.client.get_vertex_metrics(
+                topology.job_id, vid)
             if not raw:
-                self.logger.debug(f"No raw metrics for {metrics.vertex_name}")
+                self.logger.debug(
+                    "No raw metrics for %s", metrics.vertex_name)
                 metrics.has_valid_metrics = False
                 continue
 
-            total_in   = sum(raw.get("numRecordsIn",         [0.0]))
-            total_out  = sum(raw.get("numRecordsOut",        [0.0]))
-            total_busy = sum(raw.get("accumulateBusyTimeMs", [0.0]))
+            total_in = sum(raw.get("numRecordsIn", [0.0]))
+            total_out = sum(raw.get("numRecordsOut", [0.0]))
+            total_busy = sum(
+                raw.get("accumulateBusyTimeMs", [0.0]))
 
             current_snapshot[vid] = {
-                "numRecordsIn":         total_in,
-                "numRecordsOut":        total_out,
+                "numRecordsIn": total_in,
+                "numRecordsOut": total_out,
                 "accumulateBusyTimeMs": total_busy,
             }
 
@@ -553,40 +680,46 @@ class MetricsCollector:
                     continue
 
                 prev = self._prev_snapshot[vid]
-                delta_in   = max(total_in   - prev["numRecordsIn"],         0.0)
-                delta_out  = max(total_out  - prev["numRecordsOut"],        0.0)
-                delta_busy = max(total_busy - prev["accumulateBusyTimeMs"], 0.0)
+                delta_in = max(
+                    total_in - prev["numRecordsIn"], 0.0)
+                delta_out = max(
+                    total_out - prev["numRecordsOut"], 0.0)
+                delta_busy = max(
+                    total_busy - prev["accumulateBusyTimeMs"], 0.0)
 
-                metrics.records_in_per_second  = delta_in  / dt
+                metrics.records_in_per_second = delta_in / dt
                 metrics.records_out_per_second = delta_out / dt
 
-                # busy_ratio = 各 subtask 平均忙碌比
-                # delta_busy 是所有 subtask 的总毫秒数，除以 (dt_s × 1000 × parallelism)
                 p = max(metrics.parallelism, 1)
-                metrics.busy_ratio = min(delta_busy / (dt * 1000.0 * p), 1.0)
+                metrics.busy_ratio = min(
+                    delta_busy / (dt * 1000.0 * p), 1.0)
 
-                # 选择率
                 if metrics.records_in_per_second > 1.0:
                     metrics.selectivity = (
-                        metrics.records_out_per_second / metrics.records_in_per_second
+                        metrics.records_out_per_second
+                        / metrics.records_in_per_second
                     )
                 else:
                     metrics.selectivity = 1.0
 
-                # 真实处理能力
-                eff_busy = max(metrics.busy_ratio, self.config.min_busy_ratio)
-                metrics.true_processing_rate = metrics.records_in_per_second  / eff_busy
-                metrics.true_output_rate     = metrics.records_out_per_second / eff_busy
+                eff_busy = max(
+                    metrics.busy_ratio, self.config.min_busy_ratio)
+                metrics.true_processing_rate = (
+                    metrics.records_in_per_second / eff_busy)
+                metrics.true_output_rate = (
+                    metrics.records_out_per_second / eff_busy)
 
                 metrics.has_valid_metrics = True
 
                 self.logger.debug(
-                    f"  {metrics.vertex_name:<25} "
-                    f"in={metrics.records_in_per_second:8.1f}/s "
-                    f"out={metrics.records_out_per_second:8.1f}/s "
-                    f"busy={metrics.busy_ratio:.3f} "
-                    f"true={metrics.true_processing_rate:8.1f}/s "
-                    f"sel={metrics.selectivity:.3f}"
+                    "  %-25s in=%8.1f/s out=%8.1f/s "
+                    "busy=%.3f true=%8.1f/s sel=%.3f",
+                    metrics.vertex_name,
+                    metrics.records_in_per_second,
+                    metrics.records_out_per_second,
+                    metrics.busy_ratio,
+                    metrics.true_processing_rate,
+                    metrics.selectivity,
                 )
             else:
                 metrics.has_valid_metrics = False
@@ -594,41 +727,194 @@ class MetricsCollector:
         self._prev_snapshot = current_snapshot
         self._prev_time = now
 
-        valid = sum(1 for v in topology.vertices.values() if v.has_valid_metrics)
-        self.logger.info(
-            f"Metrics collected: {valid}/{len(topology.vertices)} vertices valid"
+        valid = sum(
+            1 for v in topology.vertices.values()
+            if v.has_valid_metrics
         )
+        self.logger.info(
+            "Metrics collected: %d/%d vertices valid",
+            valid, len(topology.vertices))
         return valid > 0
 
+    def _collect_snapshot_only(self, topology: JobTopology):
+        now = time.time()
+        current_snapshot: Dict[str, Dict[str, float]] = {}
+
+        for vid, metrics in topology.vertices.items():
+            raw = self.client.get_vertex_metrics(
+                topology.job_id, vid)
+            if not raw:
+                continue
+
+            total_in = sum(raw.get("numRecordsIn", [0.0]))
+            total_out = sum(raw.get("numRecordsOut", [0.0]))
+            total_busy = sum(
+                raw.get("accumulateBusyTimeMs", [0.0]))
+
+            current_snapshot[vid] = {
+                "numRecordsIn": total_in,
+                "numRecordsOut": total_out,
+                "accumulateBusyTimeMs": total_busy,
+            }
+            metrics.has_valid_metrics = False
+
+        self._prev_snapshot = current_snapshot
+        self._prev_time = now
 
 
 # ============================================================================
-# 5. DS2 决策模型（修复级联膨胀 Bug）
+# 5. DS2 决策模型
 # ============================================================================
 
 class DS2Model:
-    """
-    DS2 目标并行度推导模型（修复版）
 
-    核心修正：
-    1. target_output_rate 传播"实际数据流量"而非"虚构容量"
-    2. 增加 backpressure 感知：busy 低但 backpressure 高时不视为空闲
-    3. 空闲算子（busy < 阈值）默认保持现状
-    """
-
-
-    # 在 __init__ 中改为：
     def __init__(self, config: Config):
         self.config = config
         self.logger = logging.getLogger("DS2.Model")
-        self.idle_threshold = config.idle_busy_threshold  # 从配置读取
+        self.idle_threshold = config.idle_busy_threshold
 
-    def compute(self, topology: JobTopology) -> Dict[str, ScalingDecision]:
+    def _apply_amplitude_limit(self, current_p: int,
+                                raw_target_p: int) -> int:
+        mf = self.config.max_scale_factor
+        if raw_target_p > current_p:
+            capped = min(raw_target_p,
+                         math.ceil(current_p * mf))
+            capped = min(capped, self.config.max_parallelism)
+            capped = max(capped, self.config.min_parallelism)
+            if capped != raw_target_p:
+                self.logger.info(
+                    "    amp_limit(UP): %d -> %d "
+                    "(cur=%d, max %.1fx)",
+                    raw_target_p, capped, current_p, mf)
+            return capped
+        elif raw_target_p < current_p:
+            floored = max(raw_target_p,
+                          math.ceil(current_p / mf))
+            floored = max(floored, self.config.min_parallelism)
+            if floored != raw_target_p:
+                self.logger.info(
+                    "    amp_limit(DOWN): %d -> %d "
+                    "(cur=%d, min 1/%.1fx)",
+                    raw_target_p, floored, current_p, mf)
+            return floored
+        return raw_target_p
+
+    def _compensate_busy(self, metrics: OperatorMetrics) -> float:
+        busy = metrics.busy_ratio
+        p = max(metrics.parallelism, 1)
+
+        if busy >= self.config.min_busy_ratio:
+            return busy
+
+        throughput = max(metrics.records_in_per_second,
+                         metrics.records_out_per_second)
+        if throughput < 1.0:
+            return busy
+
+        cap = self.config.source_capacity_per_instance
+        per_inst_throughput = throughput / p
+        estimated = per_inst_throughput / cap
+        estimated = max(estimated, self.config.min_busy_ratio)
+        estimated = min(estimated, 0.8)
+
+        self.logger.info(
+            "  [busy-compensate] %s: reported=%.3f -> "
+            "estimated=%.3f (throughput=%.1f/s, P=%d, cap=%.0f/inst)",
+            metrics.vertex_name, busy, estimated,
+            throughput, p, cap)
+        return estimated
+
+    def _compute_source_parallelism(
+        self, metrics: OperatorMetrics
+    ) -> int:
+        p = metrics.parallelism
+        cap = self.config.source_capacity_per_instance
+
+        busy = self._compensate_busy(metrics)
+        target_util = 1.0 / self.config.target_rate_ratio
+
+        if busy > target_util:
+            raw_p = math.ceil(p * busy / target_util)
+            clamped = max(self.config.min_parallelism,
+                          min(raw_p, self.config.max_parallelism))
+            clamped = min(clamped, self.config.source_max_parallelism)
+            return self._apply_amplitude_limit(p, clamped)
+
+        if (busy < target_util * 0.5
+                and p > self.config.min_parallelism):
+            raw_p = math.ceil(p * busy / target_util)
+            raw_p = max(raw_p, self.config.min_parallelism)
+            clamped = max(raw_p, p - 1)
+            return self._apply_amplitude_limit(p, clamped)
+
+        return p
+
+    def _cascade_protection(
+        self,
+        topology: JobTopology,
+        decisions: Dict[str, ScalingDecision],
+    ):
+        for vid in topology.topological_sort():
+            if vid not in decisions:
+                continue
+            d = decisions[vid]
+            upstream_ids = topology.get_upstream(vid)
+            if not upstream_ids:
+                continue
+
+            any_up = False
+            ratios: List[float] = []
+            for uid in upstream_ids:
+                if uid in decisions:
+                    ud = decisions[uid]
+                    if ud.target_parallelism > ud.current_parallelism:
+                        any_up = True
+                        if ud.current_parallelism > 0:
+                            ratios.append(
+                                ud.target_parallelism
+                                / ud.current_parallelism
+                            )
+
+            if not any_up:
+                continue
+
+            if d.target_parallelism < d.current_parallelism:
+                self.logger.warning(
+                    "  [CASCADE-BLOCK] %s: upstream UP, "
+                    "block %d -> %d (keep %d)",
+                    d.vertex_name, d.target_parallelism,
+                    d.current_parallelism, d.current_parallelism)
+                d.target_parallelism = d.current_parallelism
+                d.reason += " | CASCADE_BLOCKED"
+
+            elif (d.target_parallelism == d.current_parallelism
+                  and ratios):
+                avg_r = sum(ratios) / len(ratios)
+                if avg_r > 1.2:
+                    follow_r = 1.0 + (avg_r - 1.0) * 0.5
+                    follow_p = min(
+                        math.ceil(d.current_parallelism * follow_r),
+                        self.config.max_parallelism)
+                    follow_p = self._apply_amplitude_limit(
+                        d.current_parallelism, follow_p)
+                    if follow_p > d.current_parallelism:
+                        self.logger.info(
+                            "  [CASCADE-FOLLOW] %s: upstream UP "
+                            "(avg_ratio=%.2f), follow %d -> %d",
+                            d.vertex_name, avg_r,
+                            d.current_parallelism, follow_p)
+                        d.target_parallelism = follow_p
+                        d.reason += (
+                            " | CASCADE_FOLLOW(%.2f)" % avg_r)
+
+    def compute(
+        self, topology: JobTopology
+    ) -> Dict[str, ScalingDecision]:
         decisions: Dict[str, ScalingDecision] = {}
         target_output_rate: Dict[str, float] = {}
 
         self.logger.info("=" * 60)
-        self.logger.info("DS2 Model Computing ...")
+        self.logger.info("DS2 Model Computing (P10) ...")
         self.logger.info("=" * 60)
 
         for vid in topology.topological_sort():
@@ -637,221 +923,140 @@ class DS2Model:
             current_p = metrics.parallelism
             arg_name = metrics.arg_name
 
-            self.logger.info(f"\n--- {metrics.vertex_name} (P={current_p}) ---")
+            self.logger.info("")
+            self.logger.info(
+                "--- %s (P=%d) ---",
+                metrics.vertex_name, current_p)
 
-            # ── 无有效指标：保持现状 ──
             if not metrics.has_valid_metrics:
                 decisions[vid] = ScalingDecision(
                     vid, metrics.vertex_name, arg_name,
-                    current_p, current_p, "No valid metrics"
-                )
-                target_output_rate[vid] = metrics.records_out_per_second
-                self.logger.info(f"  -> keep P={current_p} (no metrics)")
+                    current_p, current_p, "No valid metrics")
+                target_output_rate[vid] = (
+                    metrics.records_out_per_second)
+                self.logger.info(
+                    "  -> keep P=%d (no metrics)", current_p)
                 continue
 
-            # ── Source 算子 ──
             if not upstream_ids:
                 target_p = self._compute_source_parallelism(metrics)
                 decisions[vid] = ScalingDecision(
                     vid, metrics.vertex_name, arg_name,
                     current_p, target_p,
-                    f"Source busy={metrics.busy_ratio:.3f}"
-                )
-                # ★ 修正：传播实际输出速率，按并行度变化等比缩放
+                    "Source busy=%.3f cap=%.0f" % (
+                        metrics.busy_ratio,
+                        self.config.source_capacity_per_instance))
+
                 if current_p > 0 and target_p != current_p:
-                    target_output_rate[vid] = (
-                        metrics.records_out_per_second * target_p / current_p
-                    )
+                    projected = (
+                        metrics.records_out_per_second
+                        * target_p / current_p)
+                    cap_proj = (
+                        metrics.records_out_per_second
+                        * self.config.max_scale_factor)
+                    target_output_rate[vid] = min(
+                        projected, cap_proj)
                 else:
-                    target_output_rate[vid] = metrics.records_out_per_second
+                    target_output_rate[vid] = (
+                        metrics.records_out_per_second)
 
                 self.logger.info(
-                    f"  actual_out={metrics.records_out_per_second:.1f}/s  "
-                    f"busy={metrics.busy_ratio:.3f}  "
-                    f"target_out={target_output_rate[vid]:.1f}/s  "
-                    f"-> P: {current_p} -> {target_p}"
-                )
+                    "  out=%.1f/s  busy=%.3f  target_out=%.1f/s"
+                    "  -> P: %d -> %d",
+                    metrics.records_out_per_second,
+                    metrics.busy_ratio,
+                    target_output_rate[vid],
+                    current_p, target_p)
                 continue
 
-            # ── 非 Source 算子 ──
-
-            # Step 1: 从上游聚合目标输入速率
             target_input = sum(
-                target_output_rate.get(uid, 0.0) for uid in upstream_ids
-            )
+                target_output_rate.get(uid, 0.0)
+                for uid in upstream_ids)
 
-            self.logger.info(f"  target_input={target_input:.1f}/s")
+            actual_input = metrics.records_in_per_second
+            if actual_input > self.config.recovery_throughput_min:
+                max_growth = (self.config.max_scale_factor
+                              * self.config.target_rate_ratio)
+                ceiling = actual_input * max_growth
+                if target_input > ceiling:
+                    self.logger.info(
+                        "  anti-cascade: target_input %.0f -> "
+                        "%.0f (actual=%.0f x %.1f)",
+                        target_input, ceiling,
+                        actual_input, max_growth)
+                    target_input = ceiling
 
-            # Step 2: 判断是否 idle（使用配置值而非硬编码）
-            if metrics.busy_ratio < self.idle_threshold:
-                target_p, reason, out_rate = self._handle_idle_operator(
-                    metrics, target_input, current_p
-                )
+            self.logger.info(
+                "  target_input=%.1f/s", target_input)
+
+            comp_busy = self._compensate_busy(metrics)
+
+            if (target_input <= 0.0
+                    and comp_busy < self.idle_threshold):
+                target_p = self.config.min_parallelism
                 decisions[vid] = ScalingDecision(
                     vid, metrics.vertex_name, arg_name,
-                    current_p, target_p, reason
-                )
-                target_output_rate[vid] = out_rate
+                    current_p, target_p,
+                    "No input data, set min_p=%d" % target_p)
+                target_output_rate[vid] = 0.0
                 self.logger.info(
-                    f"  busy={metrics.busy_ratio:.3f} < {self.idle_threshold} "
-                    f"-> {reason}  P: {current_p} -> {target_p}  "
-                    f"target_out={out_rate:.1f}/s"
-                )
+                    "  no input + idle -> P: %d -> %d",
+                    current_p, target_p)
                 continue
 
-            # Step 3: 计算每实例真实处理能力
-            eff_busy = max(metrics.busy_ratio, self.config.min_busy_ratio)
-            true_rate = metrics.records_in_per_second / eff_busy
-            per_inst_rate = true_rate / max(current_p, 1)
+            eff_busy = max(comp_busy, self.config.min_busy_ratio)
+            true_rate = (actual_input / eff_busy
+                         if actual_input > 0 else 0.0)
+            per_inst = true_rate / max(current_p, 1)
 
-            if per_inst_rate < 1.0:
+            if per_inst < 1.0:
                 self.logger.warning(
-                    f"  per_inst_rate={per_inst_rate:.2f} too low, "
-                    f"keep P={current_p}"
-                )
+                    "  per_inst=%.2f too low, keep P=%d",
+                    per_inst, current_p)
                 decisions[vid] = ScalingDecision(
                     vid, metrics.vertex_name, arg_name,
                     current_p, current_p,
-                    f"per_inst_rate too low: {per_inst_rate:.2f}"
-                )
-                target_output_rate[vid] = target_input * metrics.selectivity
+                    "per_inst too low (%.2f)" % per_inst)
+                target_output_rate[vid] = (
+                    target_input * metrics.selectivity)
                 continue
 
-            # Step 4: 目标并行度
-            target_input_margin = target_input * self.config.target_rate_ratio
-            raw_p = math.ceil(target_input_margin / per_inst_rate)
-            target_p = max(
-                self.config.min_parallelism,
-                min(raw_p, self.config.max_parallelism)
-            )
+            margin_input = (
+                target_input * self.config.target_rate_ratio)
+            raw_p = math.ceil(margin_input / per_inst)
+            target_p = max(self.config.min_parallelism,
+                           min(raw_p, self.config.max_parallelism))
+            target_p = self._apply_amplitude_limit(
+                current_p, target_p)
 
-            # ★ 传播实际流量
-            target_output_rate[vid] = target_input * metrics.selectivity
+            sel_out = target_input * metrics.selectivity
+            target_output_rate[vid] = sel_out
 
+            reason = (
+                "in=%.1f per_inst=%.1f raw_p=%d "
+                "busy=%.3f(comp=%.3f)" % (
+                    margin_input, per_inst, raw_p,
+                    metrics.busy_ratio, comp_busy))
             decisions[vid] = ScalingDecision(
                 vid, metrics.vertex_name, arg_name,
-                current_p, target_p,
-                f"in={target_input_margin:.1f} per_inst={per_inst_rate:.1f} "
-                f"raw_p={raw_p} busy={metrics.busy_ratio:.3f}"
-            )
+                current_p, target_p, reason)
 
             self.logger.info(
-                f"  per_inst={per_inst_rate:.1f}/s  "
-                f"target_in_margin={target_input_margin:.1f}/s  "
-                f"raw_p={raw_p}  -> P: {current_p} -> {target_p}  "
-                f"target_out={target_output_rate[vid]:.1f}/s"
-            )
+                "  per_inst=%.1f/s  margin_in=%.1f/s  raw_p=%d"
+                "  -> P: %d -> %d  target_out=%.1f/s",
+                per_inst, margin_input, raw_p,
+                current_p, target_p, sel_out)
 
+        self._cascade_protection(topology, decisions)
         self._log_summary(decisions)
         return decisions
 
-    def _compute_source_parallelism(self, metrics: OperatorMetrics) -> int:
-        """Source 并行度：基于 busy_ratio 与目标利用率之比"""
-        p = metrics.parallelism
-        busy = metrics.busy_ratio
-        target_util = 1.0 / self.config.target_rate_ratio  # 0.667
-
-        if busy > target_util:
-            raw_p = math.ceil(p * busy / target_util)
-            return max(self.config.min_parallelism,
-                       min(raw_p, self.config.max_parallelism))
-
-        if busy < target_util * 0.5 and p > self.config.min_parallelism:
-            raw_p = math.ceil(p * busy / target_util)
-            raw_p = max(raw_p, self.config.min_parallelism)
-            return max(raw_p, p - 1)
-
-        return p
-
-    def _handle_idle_operator(
-            self,
-            metrics: OperatorMetrics,
-            target_input: float,
-            current_p: int
-    ) -> Tuple[int, str, float]:
-        """
-        [P3新增] idle 算子的并行度决策。
-
-        逻辑：
-        - 没有上游数据流入 → 保持 min_parallelism（不能缩到0）
-        - 有数据但极度轻载 → 按需计算最小够用并行度，允许缩容
-        - 计算方式与 active 算子一致，但 busy 用 min_busy_ratio 兜底
-        """
-        out_rate = target_input * metrics.selectivity
-
-        # 情况1：无上游数据，保持最小并行度
-        if target_input <= 0.0:
-            target_p = self.config.min_parallelism
-            return (
-                target_p,
-                f"No upstream data, set min_p={target_p}",
-                out_rate
-            )
-
-        # 情况2：有数据流入，计算最小够用并行度
-        # 用 min_busy_ratio 作为 busy 下限，避免 true_rate 无限膨胀
-        eff_busy = max(metrics.busy_ratio, self.config.min_busy_ratio)
-        per_inst_rate = (metrics.records_in_per_second / eff_busy) / max(current_p, 1)
-
-        if per_inst_rate < 1.0:
-            # 单实例处理能力估算不可靠，保持现状
-            return (
-                current_p,
-                f"per_inst_rate={per_inst_rate:.2f} too low, keep P",
-                out_rate
-            )
-
-        target_input_margin = target_input * self.config.target_rate_ratio
-
-
-        #改进，避免缩容过于激进
-        needed_p = math.ceil(target_input_margin / per_inst_rate)
-        if needed_p < current_p:
-            # 保守缩容：取 needed_p 和 ceil(current_p/2) 的较大值
-            needed_p = max(needed_p, math.ceil(current_p / 2))
-        target_p = max(
-            self.config.min_parallelism,
-            min(needed_p, self.config.max_parallelism)
-        )
-
-        if target_p < current_p:
-            reason = (
-                f"Idle+underloaded: per_inst={per_inst_rate:.1f} "
-                f"needed={needed_p} -> SCALE_DOWN"
-            )
-        elif target_p > current_p:
-            reason = (
-                f"Idle but future load high: per_inst={per_inst_rate:.1f} "
-                f"needed={needed_p} -> SCALE_UP"
-            )
-        else:
-            reason = (
-                f"Idle (busy={metrics.busy_ratio:.3f}), capacity OK"
-            )
-
-        return target_p, reason, out_rate
-
-    def _check_idle_capacity(self, metrics: OperatorMetrics,
-                             target_input_margin: float) -> bool:
-        """
-        判断空闲算子能否处理未来目标负载。
-
-        - busy ≈ 0 且当前有数据流过：说明处理能力远超当前负载
-          只要目标输入不超过当前输入的 5 倍，认为 OK
-        - busy > 0：用 in_rate/busy 估算容量
-        """
-        if metrics.busy_ratio < 0.001:
-            if metrics.records_in_per_second < 1.0:
-                return True
-            ratio = target_input_margin / max(metrics.records_in_per_second, 1.0)
-            return ratio <= 5.0
-
-        estimated_capacity = metrics.records_in_per_second / metrics.busy_ratio
-        return target_input_margin <= estimated_capacity * 0.8
-
-    def _log_summary(self, decisions: Dict[str, ScalingDecision]):
-        self.logger.info("\n" + "=" * 60)
-        self.logger.info("Decision Summary:")
+    def _log_summary(
+        self, decisions: Dict[str, ScalingDecision]
+    ):
+        self.logger.info("")
+        self.logger.info("=" * 60)
+        self.logger.info("Decision Summary (P10):")
         self.logger.info("-" * 60)
         for vid, d in decisions.items():
             tag = ""
@@ -860,83 +1065,165 @@ class DS2Model:
             elif d.action == "SCALE_DOWN":
                 tag = " [DOWN]"
             self.logger.info(
-                f"  {d.vertex_name:<45} "
-                f"{d.current_parallelism} -> {d.target_parallelism}  "
-                f"{d.action}{tag}  ({d.reason})"
-            )
+                "  %-45s %d -> %d  %s%s  (%s)",
+                d.vertex_name, d.current_parallelism,
+                d.target_parallelism, d.action, tag, d.reason)
         self.logger.info("=" * 60)
 
 
-
 # ============================================================================
-# 6. 决策过滤器（Activation Window + Change Threshold）
+# 6. 决策过滤器
 # ============================================================================
 
 class DecisionFilter:
-    """
-    稳定性过滤器：
-      - change_threshold : 差异 <= 该值则忽略
-      - activation_window: 连续 N 次结果一致（±1）才放行，取中位数
-    """
 
     def __init__(self, config: Config):
         self.config = config
         self.logger = logging.getLogger("DS2.Filter")
         self._history: Dict[str, deque] = defaultdict(
-            lambda: deque(maxlen=config.activation_window)
-        )
+            lambda: deque(maxlen=config.activation_window))
+        self._busy_history: Dict[str, deque] = defaultdict(
+            lambda: deque(maxlen=config.activation_window))
+        self.high_busy_threshold = 0.9
+        self.fast_track_window = 2
 
     def reset(self):
         self._history.clear()
+        self._busy_history.clear()
         self.logger.info("Decision filter reset")
 
-    def filter(self, decisions: Dict[str, ScalingDecision]) -> Dict[str, ScalingDecision]:
-        """
-        返回通过过滤且确实需要变更的决策子集。
-        """
+    def filter(
+        self,
+        decisions: Dict[str, ScalingDecision],
+        topology: JobTopology = None,
+    ) -> Dict[str, ScalingDecision]:
         approved: Dict[str, ScalingDecision] = {}
 
         for vid, decision in decisions.items():
             self._history[vid].append(decision.target_parallelism)
 
-            # 条件1: 差异超过阈值
-            diff = abs(decision.target_parallelism - decision.current_parallelism)
+            if topology and vid in topology.vertices:
+                busy = topology.vertices[vid].busy_ratio
+                self._busy_history[vid].append(busy)
+
+            diff = abs(
+                decision.target_parallelism
+                - decision.current_parallelism)
             if diff <= self.config.change_threshold:
                 continue
 
-            # 条件2: 窗口填满
-            history = self._history[vid]
+            history = list(self._history[vid])
+            current_p = decision.current_parallelism
+
+            if self._is_high_busy(vid):
+                if len(history) >= self.fast_track_window:
+                    recent = history[-self.fast_track_window:]
+                    if self._direction_consistent(
+                            recent, current_p):
+                        final_target = self._compute_median(recent)
+                        if final_target != current_p:
+                            decision.target_parallelism = final_target
+                            approved[vid] = decision
+                            self.logger.info(
+                                "    [FAST-APPROVED] %s: "
+                                "%d -> %d (high-busy, window=%s)",
+                                decision.vertex_name,
+                                current_p, final_target, recent)
+                            continue
+                continue
+
             if len(history) < self.config.activation_window:
                 self.logger.debug(
-                    f"  {decision.vertex_name}: activation window "
-                    f"{len(history)}/{self.config.activation_window}, wait"
-                )
+                    "  %s: activation window %d/%d",
+                    decision.vertex_name,
+                    len(history),
+                    self.config.activation_window)
                 continue
 
-            # 条件3: 窗口内结果稳定（最大值-最小值 <= 1）
-            recent = list(history)
-            if max(recent) - min(recent) > 1:
+            recent = history[-self.config.activation_window:]
+
+            if not self._direction_consistent(recent, current_p):
                 self.logger.debug(
-                    f"  {decision.vertex_name}: unstable window {recent}, skip"
-                )
+                    "  %s: direction inconsistent "
+                    "window=%s vs current=%d",
+                    decision.vertex_name, recent, current_p)
                 continue
 
-            # 用中位数作为最终值
-            final_target = sorted(recent)[len(recent) // 2]
-            decision.target_parallelism = final_target
+            final_target = self._compute_median(recent)
 
-            if decision.needs_change:
+            if final_target != current_p:
+                decision.target_parallelism = final_target
                 approved[vid] = decision
                 self.logger.info(
-                    f"  [APPROVED] {decision.vertex_name}: "
-                    f"{decision.current_parallelism} -> {decision.target_parallelism} "
-                    f"(window={recent})"
-                )
+                    "    [APPROVED] %s: %d -> %d (window=%s)",
+                    decision.vertex_name,
+                    current_p, final_target, recent)
+
+        if approved:
+            has_up = any(
+                d.action == "SCALE_UP"
+                for d in approved.values())
+            has_down = any(
+                d.action == "SCALE_DOWN"
+                for d in approved.values())
+
+            if has_up and has_down:
+                down_names = [
+                    d.vertex_name for d in approved.values()
+                    if d.action == "SCALE_DOWN"
+                ]
+                self.logger.warning(
+                    "    [CONFLICT] UP+DOWN in same batch! "
+                    "Dropping SCALE_DOWN for: %s",
+                    ", ".join(down_names))
+
+                drop_vids = [
+                    vid for vid, d in approved.items()
+                    if d.action == "SCALE_DOWN"
+                ]
+                for vid_drop in drop_vids:
+                    if vid_drop in self._history:
+                        self._history[vid_drop].clear()
+
+                approved = {
+                    vid: d for vid, d in approved.items()
+                    if d.action != "SCALE_DOWN"
+                }
 
         if not approved:
-            self.logger.info("  No decisions approved this round")
+            self.logger.info("    No decisions approved this round")
 
         return approved
+
+    def _direction_consistent(
+        self, window: List[int], current_p: int
+    ) -> bool:
+        directions = set()
+        for p in window:
+            if p > current_p:
+                directions.add("UP")
+            elif p < current_p:
+                directions.add("DOWN")
+        if "UP" in directions and "DOWN" in directions:
+            return False
+        return True
+
+    def _is_high_busy(self, vid: str) -> bool:
+        history = self._busy_history.get(vid)
+        if not history or len(history) < self.fast_track_window:
+            return False
+        recent = list(history)[-self.fast_track_window:]
+        avg_busy = sum(recent) / len(recent)
+        return avg_busy >= self.high_busy_threshold
+
+    @staticmethod
+    def _compute_median(values: List[int]) -> int:
+        sorted_vals = sorted(values)
+        n = len(sorted_vals)
+        if n % 2 == 1:
+            return sorted_vals[n // 2]
+        return math.ceil(
+            (sorted_vals[n // 2 - 1] + sorted_vals[n // 2]) / 2)
 
 
 # ============================================================================
@@ -944,72 +1231,80 @@ class DecisionFilter:
 # ============================================================================
 
 class ScalingExecutor:
-    """
-    Savepoint -> Cancel -> Resubmit，通过 programArgs 传递各算子并行度。
-    """
 
-    def __init__(self, client: FlinkClient, config: Config):
+    def __init__(self, client: FlinkClient, config: Config,
+                 consumer_group_suffix: str = ""):
         self.client = client
         self.config = config
+        self.consumer_group_suffix = consumer_group_suffix
         self.logger = logging.getLogger("DS2.Executor")
+        self._scaling_count = 0
 
-    def execute(self, job_id: str,
-                approved: Dict[str, ScalingDecision],
-                all_decisions: Dict[str, ScalingDecision]) -> bool:
-        """
-        执行扩缩容。
-
-        :param job_id:         当前运行的 Job ID
-        :param approved:       通过过滤的需变更决策
-        :param all_decisions:  所有算子决策（含不变更的，用于拼完整参数）
-        :return:               是否成功
-        """
+    def execute(
+        self,
+        job_id: str,
+        approved: Dict[str, ScalingDecision],
+        all_decisions: Dict[str, ScalingDecision],
+    ) -> bool:
         if not approved:
             return False
 
+        actual_changes = {
+            vid: d for vid, d in approved.items()
+            if d.target_parallelism != d.current_parallelism
+        }
+        if not actual_changes:
+            self.logger.info(
+                "[PAUSE] All approved targets == current, "
+                "skip meaningless restart")
+            return False
+
+        approved = actual_changes
+        self._scaling_count += 1
+
         self.logger.info("=" * 60)
-        self.logger.info("EXECUTING SCALING")
+        self.logger.info(
+            "EXECUTING SCALING #%d", self._scaling_count)
         self.logger.info("=" * 60)
         for vid, d in approved.items():
             self.logger.info(
-                f"  {d.vertex_name}: {d.current_parallelism} -> {d.target_parallelism}"
-            )
+                "  %s: %d -> %d",
+                d.vertex_name,
+                d.current_parallelism,
+                d.target_parallelism)
 
-        # 1. 查找 JAR
         jar_id = self.client.find_jar_id()
         if not jar_id:
             self.logger.error("JAR not found, abort")
             return False
-        self.logger.info(f"JAR id: {jar_id}")
+        self.logger.info("JAR id: %s", jar_id)
 
-        # 2. 组装 programArgs
-        program_args = self._build_program_args(all_decisions, approved)
+        program_args = self._build_program_args(
+            all_decisions, approved)
 
-        # 3. 全局最大并行度
         all_targets = []
         for vid, d in all_decisions.items():
             if vid in approved:
-                all_targets.append(approved[vid].target_parallelism)
+                all_targets.append(
+                    approved[vid].target_parallelism)
             else:
                 all_targets.append(d.current_parallelism)
         global_max_p = max(all_targets) if all_targets else 4
 
-        # 4. Savepoint
-        savepoint_path = self.client.trigger_savepoint(job_id)
-        if not savepoint_path:
-            self.logger.error("Savepoint failed, abort")
-            return False
+        savepoint_path = None
+        if self.config.use_savepoint:
+            savepoint_path = self.client.trigger_savepoint(job_id)
+            if not savepoint_path:
+                self.logger.warning(
+                    "Savepoint failed, using stateless restart")
 
-        # 5. Cancel
         if not self.client.cancel_job(job_id):
             self.logger.error("Cancel failed, abort")
             return False
 
-        # 6. 等待资源释放
         self.logger.info("Waiting 5s for resource release ...")
         time.sleep(5)
 
-        # 7. 重新提交
         new_job_id = self.client.submit_job(
             jar_id=jar_id,
             parallelism=global_max_p,
@@ -1017,39 +1312,89 @@ class ScalingExecutor:
             program_args=program_args,
         )
 
-        if new_job_id:
-            self.logger.info(f"[OK] Scaling complete! New Job: {new_job_id}")
-            return True
-        else:
-            self.logger.error("[FAIL] Job resubmission failed")
+        if not new_job_id:
+            self.logger.error(
+                "[FAIL] Job resubmission failed")
             return False
 
-    def _build_program_args(self, all_decisions: Dict[str, ScalingDecision],
-                            approved: Dict[str, ScalingDecision]) -> str:
-        """
-        为所有算子构建完整的 programArgs 字符串。
-        approved 中的用新值，其余用当前值。
-        同一 arg_name 被多个 vertex 共享时取最大值。
-        """
+        running_id = self.client.wait_job_running(
+            timeout=self.config.wait_running_timeout)
+        if not running_id:
+            self.logger.error(
+                "[FAIL] New job did not reach RUNNING, "
+                "may need manual intervention")
+            return False
+
+        topology = self.client.get_job_topology(running_id)
+        if topology:
+            self.logger.info(
+                "[OK] Scaling #%d done! New JobID=%s",
+                self._scaling_count, running_id)
+            for vid_new, m in topology.vertices.items():
+                self.logger.info(
+                    "    [%s] P=%d  %s",
+                    vid_new[:8], m.parallelism, m.vertex_name)
+        else:
+            self.logger.info(
+                "[OK] Scaling #%d done! New JobID=%s",
+                self._scaling_count, running_id)
+
+        return True
+
+    def get_last_direction(
+        self, approved: Dict[str, ScalingDecision]
+    ) -> str:
+        dirs = set()
+        for d in approved.values():
+            if d.target_parallelism > d.current_parallelism:
+                dirs.add("UP")
+            elif d.target_parallelism < d.current_parallelism:
+                dirs.add("DOWN")
+        if "UP" in dirs and "DOWN" in dirs:
+            return "MIXED"
+        if "UP" in dirs:
+            return "UP"
+        if "DOWN" in dirs:
+            return "DOWN"
+        return "NONE"
+
+    def _build_program_args(
+        self,
+        all_decisions: Dict[str, ScalingDecision],
+        approved: Dict[str, ScalingDecision],
+    ) -> str:
         arg_values: Dict[str, int] = {}
 
         for vid, d in all_decisions.items():
             if not d.arg_name:
                 continue
-            p = approved[vid].target_parallelism if vid in approved else d.current_parallelism
+            p = (approved[vid].target_parallelism
+                 if vid in approved
+                 else d.current_parallelism)
             if d.arg_name in arg_values:
-                arg_values[d.arg_name] = max(arg_values[d.arg_name], p)
+                arg_values[d.arg_name] = max(
+                    arg_values[d.arg_name], p)
             else:
                 arg_values[d.arg_name] = p
 
-        # 补充配置中存在但决策中未出现的算子（用默认值兜底）
         for key, op_cfg in self.config.operator_mapping.items():
             if op_cfg.arg_name not in arg_values:
-                arg_values[op_cfg.arg_name] = op_cfg.default_parallelism
+                arg_values[op_cfg.arg_name] = (
+                    op_cfg.default_parallelism)
 
-        parts = [f"--{name} {value}" for name, value in sorted(arg_values.items())]
+        parts = []
+
+        if self.consumer_group_suffix:
+            parts.append(
+                "--consumer-group-suffix %s"
+                % self.consumer_group_suffix)
+            parts.append("--consume-from-latest true")
+
+        for name, value in sorted(arg_values.items()):
+            parts.append("--%s %d" % (name, value))
+
         result = " ".join(parts)
-        self.logger.info(f"programArgs: {result}")
+        self.logger.info("programArgs: %s", result)
         return result
 
 
@@ -1058,20 +1403,24 @@ class ScalingExecutor:
 # ============================================================================
 
 class DecisionLogger:
-    """每轮决策持久化到 CSV，用于论文实验分析。"""
 
     def __init__(self, log_dir: str = "ds2_logs"):
         self.logger = logging.getLogger("DS2.CsvLogger")
         os.makedirs(log_dir, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.csv_path = os.path.join(log_dir, f"ds2_decisions_{ts}.csv")
+        self.csv_path = os.path.join(
+            log_dir, "ds2_decisions_%s.csv" % ts)
         self._header_written = False
-        self.logger.info(f"CSV log: {self.csv_path}")
+        self.logger.info("CSV log: %s", self.csv_path)
 
-    def log_round(self, round_num: int, topology: JobTopology,
-                  decisions: Dict[str, ScalingDecision],
-                  approved: Dict[str, ScalingDecision],
-                  executed: bool):
+    def log_round(
+        self,
+        round_num: int,
+        topology: JobTopology,
+        decisions: Dict[str, ScalingDecision],
+        approved: Dict[str, ScalingDecision],
+        executed: bool,
+    ):
         rows = []
         now = datetime.now().isoformat()
 
@@ -1084,14 +1433,16 @@ class DecisionLogger:
                 "round": round_num,
                 "vertex_name": m.vertex_name,
                 "current_parallelism": m.parallelism,
-                "target_parallelism": d.target_parallelism if d else m.parallelism,
+                "target_parallelism": (
+                    d.target_parallelism if d else m.parallelism),
                 "action": d.action if d else "UNKNOWN",
                 "approved": vid in approved,
                 "executed": executed,
                 "in_rate": round(m.records_in_per_second, 2),
                 "out_rate": round(m.records_out_per_second, 2),
                 "busy_ratio": round(m.busy_ratio, 4),
-                "true_processing_rate": round(m.true_processing_rate, 2),
+                "true_processing_rate": round(
+                    m.true_processing_rate, 2),
                 "selectivity": round(m.selectivity, 4),
                 "reason": d.reason if d else "",
             })
@@ -1101,62 +1452,293 @@ class DecisionLogger:
 
         try:
             need_header = not self._header_written
-            with open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            with open(self.csv_path, 'a', newline='',
+                      encoding='utf-8') as f:
+                writer = csv.DictWriter(
+                    f, fieldnames=rows[0].keys())
                 if need_header:
                     writer.writeheader()
                     self._header_written = True
                 writer.writerows(rows)
         except Exception as e:
-            self.logger.warning(f"CSV write failed: {e}")
+            self.logger.warning("CSV write failed: %s", e)
 
 
 # ============================================================================
-# 9. 主控制器
+# 9. 主控制器 ★ P10: 高负载保护
 # ============================================================================
 
 class DS2Controller:
-    """
-    主控制循环，每 policy_interval 秒执行一轮：
-    查找作业 -> 采集指标 -> 计算决策 -> 过滤 -> 执行 -> 记录
-    """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config,
+                 consumer_group_suffix: str = ""):
         self.config = config
+        self.consumer_group_suffix = consumer_group_suffix
         self.logger = logging.getLogger("DS2.Controller")
 
         self.client = FlinkClient(config)
         self.collector = MetricsCollector(self.client, config)
         self.model = DS2Model(config)
         self.decision_filter = DecisionFilter(config)
-        self.executor = ScalingExecutor(self.client, config)
+        self.executor = ScalingExecutor(
+            self.client, config, consumer_group_suffix)
         self.csv_logger = DecisionLogger()
 
         self._running = True
         self._round = 0
-        self._last_scaling_time: float = 0.0
+        self._last_scaling_time: float = time.time()
+
+        # P8: 方向锁
+        self._last_scale_direction: Optional[str] = None
+        self._last_scale_direction_time: float = 0.0
+
+        # P9: 累计连续扩容计数
+        self._consecutive_up_count: int = 0
+
+        self.logger.info(
+            "Initial warm-up %ds, first decision after %ds",
+            config.warm_up_time, config.warm_up_time)
+
+    def _effective_warm_up(self) -> int:
+        """P9: 计算有效的 warm-up 时间 (含累计惩罚)"""
+        base = self.config.warm_up_time
+        limit = self.config.consecutive_scale_limit
+        penalty = self.config.consecutive_scale_penalty
+
+        if self._consecutive_up_count >= limit:
+            extra = penalty * (self._consecutive_up_count - limit + 1)
+            total = base + extra
+            self.logger.info(
+                "  [CONSEC-COOLDOWN] consecutive_up=%d >= limit=%d, "
+                "warm_up: %d + %d = %ds",
+                self._consecutive_up_count, limit,
+                base, extra, total)
+            return total
+        return base
 
     def is_warming_up(self) -> bool:
         if self._last_scaling_time <= 0:
             return False
         elapsed = time.time() - self._last_scaling_time
-        if elapsed < self.config.warm_up_time:
+        effective = self._effective_warm_up()
+        if elapsed < effective:
             self.logger.info(
-                f"Warm-up: {elapsed:.0f}s / {self.config.warm_up_time}s"
-            )
+                "Warm-up: %ds / %ds (consecutive_up=%d)",
+                int(elapsed), effective,
+                self._consecutive_up_count)
             return True
         return False
 
+    def _is_recovering(self, topology: JobTopology) -> bool:
+        recovery_count = 0
+        valid_count = 0
+
+        for vid, m in topology.vertices.items():
+            if not m.has_valid_metrics:
+                continue
+            valid_count += 1
+
+            if m.busy_ratio >= self.config.recovery_busy_threshold:
+                total_tp = (m.records_in_per_second
+                            + m.records_out_per_second)
+                if total_tp < self.config.recovery_throughput_min:
+                    recovery_count += 1
+                    self.logger.warning(
+                        "  Recovery signal: %s busy=%.3f "
+                        "in=%.0f/s out=%.0f/s",
+                        m.vertex_name, m.busy_ratio,
+                        m.records_in_per_second,
+                        m.records_out_per_second)
+
+        if (valid_count > 0
+                and recovery_count >= max(valid_count // 2, 2)):
+            self.logger.warning(
+                "  [PAUSE] Detected restart recovery: "
+                "%d/%d operators", recovery_count, valid_count)
+            return True
+
+        return False
+
+    def _get_source_throughput(self, topology: JobTopology) -> float:
+        """★ P10: 获取当前 Source 总吞吐"""
+        for vid, m in topology.vertices.items():
+            if not m.has_valid_metrics:
+                continue
+            # Source 没有上游
+            upstream = topology.get_upstream(vid)
+            if not upstream:
+                return m.records_out_per_second
+        return 0.0
+
+    def _get_source_parallelism(self, topology: JobTopology) -> int:
+        """★ P10: 获取当前 Source 并行度"""
+        for vid, m in topology.vertices.items():
+            upstream = topology.get_upstream(vid)
+            if not upstream:
+                return m.parallelism
+        return 1
+
+    def _is_high_load(self, topology: JobTopology) -> bool:
+        """
+        ★ P10: 高负载保护判定
+        当 Source 吞吐 >= capacity * source_p * protection_ratio 时
+        认为系统处于高负载, 禁止缩容
+        """
+        source_throughput = self._get_source_throughput(topology)
+        source_p = self._get_source_parallelism(topology)
+        capacity = self.config.source_capacity_per_instance
+        ratio = self.config.high_load_protection_ratio
+
+        threshold = capacity * source_p * ratio
+
+        is_high = source_throughput >= threshold
+
+        self.logger.info(
+            "  [HIGH-LOAD-CHECK] source_out=%.1f r/s, "
+            "threshold=%.1f (cap=%.0f * P=%d * ratio=%.2f) -> %s",
+            source_throughput, threshold,
+            capacity, source_p, ratio,
+            "HIGH_LOAD" if is_high else "normal")
+
+        return is_high
+
+    def _apply_high_load_protection(
+        self, approved: Dict[str, ScalingDecision],
+        topology: JobTopology
+    ) -> Dict[str, ScalingDecision]:
+        """
+        ★ P10: 如果处于高负载, 移除所有 SCALE_DOWN 决策
+        理由: 高负载下缩容需要重启, 重启代价 > 节省的资源
+        """
+        if not self._is_high_load(topology):
+            return approved
+
+        down_decisions = {
+            vid: d for vid, d in approved.items()
+            if d.direction == "DOWN"
+        }
+
+        if not down_decisions:
+            return approved
+
+        blocked_names = [d.vertex_name for d in down_decisions.values()]
+        self.logger.warning(
+            "  [HIGH-LOAD-PROTECT] Blocking SCALE_DOWN for: %s "
+            "(system under high load, restart not worth it)",
+            ", ".join(blocked_names))
+
+        # 清除这些算子的 filter history, 防止下一轮立刻再通过
+        for vid in down_decisions:
+            if vid in self.decision_filter._history:
+                self.decision_filter._history[vid].clear()
+
+        approved = {
+            vid: d for vid, d in approved.items()
+            if d.direction != "DOWN"
+        }
+
+        return approved
+
+    def _apply_direction_lock(
+        self, approved: Dict[str, ScalingDecision]
+    ) -> Dict[str, ScalingDecision]:
+        if not self._last_scale_direction:
+            return approved
+
+        elapsed = time.time() - self._last_scale_direction_time
+        lock_period = self.config.direction_lock_seconds
+
+        if elapsed >= lock_period:
+            if self._last_scale_direction:
+                self.logger.info(
+                    "  [DIR-LOCK] Lock expired "
+                    "(direction=%s, elapsed=%.0fs >= %ds)",
+                    self._last_scale_direction, elapsed, lock_period)
+                self._last_scale_direction = None
+            return approved
+
+        blocked_direction = ("DOWN"
+                             if self._last_scale_direction == "UP"
+                             else "UP")
+
+        blocked = {
+            vid: d for vid, d in approved.items()
+            if d.direction == blocked_direction
+        }
+
+        if blocked:
+            blocked_names = [d.vertex_name for d in blocked.values()]
+            self.logger.warning(
+                "  [DIR-LOCK] Active! Last=%s %.0fs ago "
+                "(lock=%ds). Blocking %s for: %s",
+                self._last_scale_direction, elapsed,
+                lock_period, blocked_direction,
+                ", ".join(blocked_names))
+
+            for vid in blocked:
+                if vid in self.decision_filter._history:
+                    self.decision_filter._history[vid].clear()
+
+            approved = {
+                vid: d for vid, d in approved.items()
+                if d.direction != blocked_direction
+            }
+
+        return approved
+
     def run(self):
         self.logger.info("=" * 60)
-        self.logger.info("DS2 Controller Starting")
-        self.logger.info(f"  Flink REST  : {self.config.flink_rest_url}")
-        self.logger.info(f"  Job Name    : {self.config.flink_job_name}")
-        self.logger.info(f"  Interval    : {self.config.policy_interval}s")
-        self.logger.info(f"  Warm-up     : {self.config.warm_up_time}s")
-        self.logger.info(f"  Act. Window : {self.config.activation_window}")
-        self.logger.info(f"  Rate Ratio  : {self.config.target_rate_ratio}")
-        self.logger.info(f"  Parallelism : [{self.config.min_parallelism}, {self.config.max_parallelism}]")
+        self.logger.info("DS2 Controller Starting (P10)")
+        self.logger.info(
+            "  Flink REST     : %s", self.config.flink_rest_url)
+        self.logger.info(
+            "  Job Name       : %s", self.config.flink_job_name)
+        self.logger.info(
+            "  CG Suffix      : %s",
+            self.consumer_group_suffix or "(none)")
+        self.logger.info(
+            "  Interval       : %ds", self.config.policy_interval)
+        self.logger.info(
+            "  Warm-up        : %ds", self.config.warm_up_time)
+        self.logger.info(
+            "  Act. Window    : %d", self.config.activation_window)
+        self.logger.info(
+            "  Rate Ratio     : %.1f",
+            self.config.target_rate_ratio)
+        self.logger.info(
+            "  Parallelism    : [%d, %d]",
+            self.config.min_parallelism,
+            self.config.max_parallelism)
+        self.logger.info(
+            "  Source Capacity : %.0f r/s/inst",
+            self.config.source_capacity_per_instance)
+        self.logger.info(
+            "  Source Max P    : %d",
+            self.config.source_max_parallelism)
+        self.logger.info(
+            "  Max Scale      : %.1fx",
+            self.config.max_scale_factor)
+        self.logger.info(
+            "  Use Savepoint  : %s", self.config.use_savepoint)
+        self.logger.info(
+            "  Wait RUNNING   : %ds",
+            self.config.wait_running_timeout)
+        self.logger.info(
+            "  Direction Lock : %ds",
+            self.config.direction_lock_seconds)
+        self.logger.info(
+            "  Post-restart Skip: %d rounds",
+            self.config.post_restart_skip_rounds)
+        self.logger.info(
+            "  Consec. Limit  : %d",
+            self.config.consecutive_scale_limit)
+        self.logger.info(
+            "  Consec. Penalty: %ds",
+            self.config.consecutive_scale_penalty)
+        # ★ P10
+        self.logger.info(
+            "  High-Load Prot.: %.0f%%",
+            self.config.high_load_protection_ratio * 100)
         self.logger.info("=" * 60)
 
         if not self.client.check_connection():
@@ -1173,86 +1755,138 @@ class DS2Controller:
                 self.logger.info("KeyboardInterrupt, stopping")
                 break
             except Exception as e:
-                self.logger.error(f"Round error: {e}", exc_info=True)
+                self.logger.error(
+                    "Round error: %s", e, exc_info=True)
 
             for _ in range(self.config.policy_interval):
                 if not self._running:
                     break
                 time.sleep(1)
 
-        self.logger.info("DS2 Controller stopped")
+        self.logger.info(
+            "DS2 Controller stopped "
+            "(total %d scaling operations)",
+            self.executor._scaling_count)
 
     def _run_one_round(self):
         self._round += 1
-        self.logger.info(f"\n{'#' * 60}")
-        self.logger.info(f"# Round {self._round}")
-        self.logger.info(f"{'#' * 60}")
+        self.logger.info("")
+        self.logger.info("#" * 60)
+        self.logger.info("# Round %d", self._round)
+        self.logger.info("#" * 60)
 
-        # 1. 查找作业
         job_id = self.client.get_running_job_id()
         if not job_id:
             self.logger.info("No running job, waiting ...")
             return
 
-        # 2. 预热检查
         if self.is_warming_up():
             self.logger.info("Warming up, skip")
             return
 
-        # 3. 获取拓扑
         topology = self.client.get_job_topology(job_id)
         if not topology:
             self.logger.warning("Failed to get topology")
             return
 
-        self.logger.info(f"Job: {topology.job_name} ({job_id})")
-        self.logger.info(f"Vertices: {len(topology.vertices)}, Edges: {len(topology.edges)}")
+        self.logger.info(
+            "Job: %s (%s)", topology.job_name, job_id)
+        self.logger.info(
+            "Vertices: %d, Edges: %d",
+            len(topology.vertices), len(topology.edges))
         for vid, m in topology.vertices.items():
-            self.logger.info(f"  {m.vertex_name} (P={m.parallelism}, arg={m.arg_name})")
+            self.logger.info(
+                "  %s (P=%d, arg=%s)",
+                m.vertex_name, m.parallelism, m.arg_name)
 
-        # 4. 采集指标
         has_data = self.collector.collect(topology)
-        if not has_data:
-            self.logger.info("Need at least 2 samples for diff, skip")
+        if not has_data or not self.collector.has_enough_samples():
+            self.logger.info(
+                "Need at least 2 samples for diff, skip")
             return
 
-        # 5. 计算决策
+        if self._is_recovering(topology):
+            self.logger.info(
+                "  Skipping this round (restart recovery)")
+            self.collector.reset()
+            return
+
         all_decisions = self.model.compute(topology)
 
-        # 6. 过滤
-        approved = self.decision_filter.filter(all_decisions)
+        approved = self.decision_filter.filter(
+            all_decisions, topology)
 
-        # 7. 执行
+        # P8: 方向锁
+        if approved:
+            approved = self._apply_direction_lock(approved)
+
+        # ★ P10: 高负载保护 (在方向锁之后再过滤一次)
+        if approved:
+            approved = self._apply_high_load_protection(
+                approved, topology)
+
         executed = False
         if approved:
-            self.logger.info(f"{len(approved)} change(s) approved, executing ...")
-            executed = self.executor.execute(job_id, approved, all_decisions)
+            self.logger.info(
+                "%d change(s) approved, executing ...",
+                len(approved))
+
+            batch_direction = self.executor.get_last_direction(
+                approved)
+
+            executed = self.executor.execute(
+                job_id, approved, all_decisions)
             if executed:
                 self._last_scaling_time = time.time()
                 self.collector.reset()
                 self.decision_filter.reset()
+
+                # P8: 方向锁
+                self._last_scale_direction = batch_direction
+                self._last_scale_direction_time = time.time()
+
+                # P9: 累计连续扩容计数
+                if batch_direction == "UP":
+                    self._consecutive_up_count += 1
+                    self.logger.info(
+                        "  [CONSEC] UP count -> %d "
+                        "(limit=%d, penalty=%ds/each)",
+                        self._consecutive_up_count,
+                        self.config.consecutive_scale_limit,
+                        self.config.consecutive_scale_penalty)
+                else:
+                    if self._consecutive_up_count > 0:
+                        self.logger.info(
+                            "  [CONSEC] Reset UP count "
+                            "(was %d, direction=%s)",
+                            self._consecutive_up_count,
+                            batch_direction)
+                    self._consecutive_up_count = 0
+
+                eff_warm = self._effective_warm_up()
                 self.logger.info(
-                    f"Scaling done, warm-up {self.config.warm_up_time}s starts"
-                )
+                    "Scaling done (direction=%s), "
+                    "effective warm-up %ds + direction lock %ds",
+                    batch_direction, eff_warm,
+                    self.config.direction_lock_seconds)
         else:
             self.logger.info("No approved changes")
 
-        # 8. 日志
         self.csv_logger.log_round(
-            self._round, topology, all_decisions, approved, executed
-        )
+            self._round, topology,
+            all_decisions, approved, executed)
 
     def _handle_signal(self, signum, frame):
-        self.logger.info(f"Signal {signum} received, stopping ...")
+        self.logger.info(
+            "Signal %d received, stopping ...", signum)
         self._running = False
 
 
 # ============================================================================
-# 10. 工具函数（模块级，不在任何类内部）
+# 10. 工具函数
 # ============================================================================
 
 def setup_logging(level: str = "INFO"):
-    """配置根日志：控制台 + 文件双输出"""
     numeric_level = getattr(logging, level.upper(), logging.INFO)
 
     formatter = logging.Formatter(
@@ -1267,8 +1901,7 @@ def setup_logging(level: str = "INFO"):
     os.makedirs("ds2_logs", exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_handler = logging.FileHandler(
-        f"ds2_logs/ds2_{ts}.log", encoding="utf-8"
-    )
+        "ds2_logs/ds2_%s.log" % ts, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
 
@@ -1279,10 +1912,6 @@ def setup_logging(level: str = "INFO"):
 
 
 def run_dry(config: Config):
-    """
-    Dry-run 模式：采集两轮指标、计算决策、打印结果，不执行扩缩容。
-    用于上线前验证配置和算法。
-    """
     logger = logging.getLogger("DS2.DryRun")
     client = FlinkClient(config)
 
@@ -1300,32 +1929,39 @@ def run_dry(config: Config):
         logger.error("Failed to get topology")
         return
 
-    logger.info(f"Job: {topology.job_name} ({job_id})")
-    logger.info(f"Vertices ({len(topology.vertices)}):")
+    logger.info("Job: %s (%s)", topology.job_name, job_id)
+    logger.info("Vertices (%d):", len(topology.vertices))
     for vid, m in topology.vertices.items():
-        logger.info(f"  {m.vertex_name}  P={m.parallelism}  arg={m.arg_name}")
-
-    logger.info(f"Edges ({len(topology.edges)}):")
-    for src, dst in topology.edges:
-        sn = topology.vertices.get(src, None)
-        dn = topology.vertices.get(dst, None)
         logger.info(
-            f"  {sn.vertex_name if sn else src} -> {dn.vertex_name if dn else dst}"
-        )
+            "  %s  P=%d  arg=%s",
+            m.vertex_name, m.parallelism, m.arg_name)
 
-    logger.info("\nTopological order:")
+    logger.info("Edges (%d):", len(topology.edges))
+    for src, dst in topology.edges:
+        sn = topology.vertices.get(src)
+        dn = topology.vertices.get(dst)
+        logger.info(
+            "  %s -> %s",
+            sn.vertex_name if sn else src,
+            dn.vertex_name if dn else dst)
+
+    logger.info("")
+    logger.info("Topological order:")
     for i, vid in enumerate(topology.topological_sort()):
-        logger.info(f"  {i + 1}. {topology.vertices[vid].vertex_name}")
+        logger.info(
+            "  %d. %s",
+            i + 1, topology.vertices[vid].vertex_name)
 
-    # 第一次采样
     collector = MetricsCollector(client, config)
-    logger.info("\n--- Sample 1 ---")
+    logger.info("")
+    logger.info("--- Sample 1 ---")
     collector.collect(topology)
 
-    logger.info(f"Waiting {config.policy_interval}s for sample 2 ...")
+    logger.info(
+        "Waiting %ds for sample 2 ...",
+        config.policy_interval)
     time.sleep(config.policy_interval)
 
-    # 重新获取拓扑（刷新 metrics 对象）
     topology = client.get_job_topology(job_id)
     if not topology:
         logger.error("Failed to get topology on 2nd sample")
@@ -1337,106 +1973,155 @@ def run_dry(config: Config):
         logger.error("No valid metrics after 2 samples")
         return
 
-    # 打印指标表
-    logger.info("\n" + "=" * 80)
+    logger.info("")
+    logger.info("=" * 80)
     logger.info(
-        f"{'Operator':<25} {'In/s':>8} {'Out/s':>8} "
-        f"{'Busy':>6} {'TrueRate':>10} {'Sel':>6} {'P':>3}"
-    )
+        "%-25s %8s %8s %6s %10s %6s %3s",
+        "Operator", "In/s", "Out/s", "Busy",
+        "TrueRate", "Sel", "P")
     logger.info("-" * 80)
     for vid in topology.topological_sort():
         m = topology.vertices[vid]
         if m.has_valid_metrics:
             logger.info(
-                f"{m.vertex_name:<25} "
-                f"{m.records_in_per_second:>8.1f} "
-                f"{m.records_out_per_second:>8.1f} "
-                f"{m.busy_ratio:>6.3f} "
-                f"{m.true_processing_rate:>10.1f} "
-                f"{m.selectivity:>6.3f} "
-                f"{m.parallelism:>3}"
-            )
+                "%-25s %8.1f %8.1f %6.3f %10.1f %6.3f %3d",
+                m.vertex_name,
+                m.records_in_per_second,
+                m.records_out_per_second,
+                m.busy_ratio,
+                m.true_processing_rate,
+                m.selectivity,
+                m.parallelism)
         else:
-            logger.info(f"{m.vertex_name:<25} {'(no data)':>8}")
+            logger.info("%-25s %8s", m.vertex_name, "(no data)")
     logger.info("=" * 80)
 
-    # 计算决策
     model = DS2Model(config)
     decisions = model.compute(topology)
 
-    # 预览 programArgs
-    executor = ScalingExecutor(client, config)
-    args_preview = executor._build_program_args(decisions, decisions)
-    logger.info(f"\nprogramArgs preview: {args_preview}")
-
-    logger.info("\nDry-run complete. No changes applied.")
+    executor = ScalingExecutor(client, config, "")
+    args_preview = executor._build_program_args(
+        decisions, decisions)
+    logger.info("")
+    logger.info("programArgs preview: %s", args_preview)
+    logger.info("")
+    logger.info("Dry-run complete. No changes applied.")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DS2 Auto-Scaling Controller")
+    parser = argparse.ArgumentParser(
+        description="DS2 Auto-Scaling Controller (P10)")
     parser.add_argument(
         "-c", "--config",
         default="ds2_config.yaml",
-        help="Config file path (default: ds2_config.yaml)",
-    )
+        help="Config file path (default: ds2_config.yaml)")
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Compute decisions only, do not execute scaling",
-    )
+        help="Compute decisions only, do not execute scaling")
+    parser.add_argument(
+        "--consumer-group-suffix",
+        default="",
+        help="Consumer Group suffix (passed by experiment_v3.py)")
     args = parser.parse_args()
 
-    # 加载配置
     config = Config.from_yaml(args.config)
     config.validate()
 
-    # 如果 YAML 中没有 operator_mapping，使用默认值
     if not config.operator_mapping:
-        print("[WARN] No operator_mapping in config, using built-in defaults")
+        print("[WARN] No operator_mapping, using built-in defaults")
         config.operator_mapping = {
-            "source": OperatorConfig("RocketMQ-Source", "p-source", 2),
-            "filter": OperatorConfig("Hardware-Filter", "p-filter", 4),
-            "signal": OperatorConfig("Signal-Extraction", "p-signal", 4),
-            "feature": OperatorConfig("Feature-Extraction", "p-feature", 4),
-            "grid": OperatorConfig("Grid-Aggregation", "p-grid", 4),
-            "sink_event": OperatorConfig("EventFeature-Sink", "p-sink", 2),
-            "sink_grid": OperatorConfig("GridSummary-Sink", "p-sink", 2),
+            "source": OperatorConfig(
+                "RocketMQ-Source", "p-source", 2),
+            "watermark": OperatorConfig(
+                "Watermark-Assigner", "p-source", 2),
+            "filter": OperatorConfig(
+                "Hardware-Filter", "p-filter", 4),
+            "signal": OperatorConfig(
+                "Signal-Extraction", "p-signal", 4),
+            "feature": OperatorConfig(
+                "Feature-Extraction", "p-feature", 4),
+            "grid": OperatorConfig(
+                "Grid-Aggregation", "p-grid", 4),
+            "sink_event": OperatorConfig(
+                "EventFeature-Sink", "p-sink", 2),
+            "sink_grid": OperatorConfig(
+                "GridSummary-Sink", "p-sink", 2),
         }
 
-    # 设置日志
     setup_logging(config.log_level)
 
     logger = logging.getLogger("DS2.Main")
-    logger.info("DS2 Configuration:")
-    logger.info(f"  flink_rest_url    = {config.flink_rest_url}")
-    logger.info(f"  flink_job_name    = {config.flink_job_name}")
-    logger.info(f"  policy_interval   = {config.policy_interval}s")
-    logger.info(f"  warm_up_time      = {config.warm_up_time}s")
-    logger.info(f"  activation_window = {config.activation_window}")
-    logger.info(f"  target_rate_ratio = {config.target_rate_ratio}")
-    logger.info(f"  parallelism range = [{config.min_parallelism}, {config.max_parallelism}]")
-    logger.info(f"  target_jar_name   = {config.target_jar_name}")
-    logger.info(f"  operator_mapping  = {len(config.operator_mapping)} operators:")
+    logger.info("DS2 Configuration (P10):")
+    logger.info(
+        "  flink_rest_url     = %s", config.flink_rest_url)
+    logger.info(
+        "  flink_job_name     = %s", config.flink_job_name)
+    logger.info(
+        "  consumer_suffix    = %s",
+        args.consumer_group_suffix or "(none)")
+    logger.info(
+        "  policy_interval    = %ds", config.policy_interval)
+    logger.info(
+        "  warm_up_time       = %ds", config.warm_up_time)
+    logger.info(
+        "  activation_window  = %d", config.activation_window)
+    logger.info(
+        "  target_rate_ratio  = %.1f", config.target_rate_ratio)
+    logger.info(
+        "  parallelism range  = [%d, %d]",
+        config.min_parallelism, config.max_parallelism)
+    logger.info(
+        "  source_capacity    = %.0f r/s/inst",
+        config.source_capacity_per_instance)
+    logger.info(
+        "  source_max_p       = %d",
+        config.source_max_parallelism)
+    logger.info(
+        "  max_scale_factor   = %.1fx",
+        config.max_scale_factor)
+    logger.info(
+        "  use_savepoint      = %s", config.use_savepoint)
+    logger.info(
+        "  wait_running_timeout = %ds",
+        config.wait_running_timeout)
+    logger.info(
+        "  direction_lock     = %ds",
+        config.direction_lock_seconds)
+    logger.info(
+        "  post_restart_skip  = %d rounds",
+        config.post_restart_skip_rounds)
+    logger.info(
+        "  consec_scale_limit   = %d",
+        config.consecutive_scale_limit)
+    logger.info(
+        "  consec_scale_penalty = %ds",
+        config.consecutive_scale_penalty)
+    # ★ P10
+    logger.info(
+        "  high_load_prot_ratio = %.2f",
+        config.high_load_protection_ratio)
+    logger.info(
+        "  target_jar_name    = %s", config.target_jar_name)
+    logger.info(
+        "  operator_mapping   = %d operators:",
+        len(config.operator_mapping))
     for key, op in config.operator_mapping.items():
         logger.info(
-            f"    {key:<12} keyword='{op.keyword}'  arg='{op.arg_name}'  "
-            f"default_p={op.default_parallelism}"
-        )
+            "    %-12s keyword='%s'  arg='%s'  default_p=%d",
+            key, op.keyword, op.arg_name,
+            op.default_parallelism)
 
     if args.dry_run:
-        logger.info("MODE: dry-run (no scaling will be executed)")
+        logger.info("MODE: dry-run")
         run_dry(config)
     else:
         logger.info("MODE: live")
-        controller = DS2Controller(config)
+        controller = DS2Controller(
+            config,
+            consumer_group_suffix=args.consumer_group_suffix)
         controller.run()
 
 
-# ============================================================================
-# 入口
-# ============================================================================
-
 if __name__ == "__main__":
     main()
-
-

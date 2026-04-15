@@ -1,0 +1,38 @@
+{
+  "run_id": "E2_run01_20260330_223847",
+  "exp_name": "E2",
+  "exp_config": {
+    "name": "缩容实验",
+    "description": "低负载恒定输入，验证DS2缩容能力",
+    "ds2_enabled": true,
+    "duration_seconds": 600,
+    "warmup_before_ds2": 30,
+    "drain_seconds": 60,
+    "repeat": 1,
+    "parallelism": {
+      "p-source": 6,
+      "p-filter": 8,
+      "p-signal": 8,
+      "p-feature": 4,
+      "p-grid": 4,
+      "p-sink": 2
+    },
+    "load_profile": [
+      {
+        "name": "low_pressure",
+        "rate": 2000,
+        "duration": 600
+      }
+    ]
+  },
+  "start_time": "2026-03-30T22:38:47.862919",
+  "parallelism": {
+    "p-source": 6,
+    "p-filter": 8,
+    "p-signal": 8,
+    "p-feature": 4,
+    "p-grid": 4,
+    "p-sink": 2
+  },
+  "ds2_enabled": true
+}

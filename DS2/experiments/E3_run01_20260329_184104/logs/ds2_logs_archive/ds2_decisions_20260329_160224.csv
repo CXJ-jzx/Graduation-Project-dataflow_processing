@@ -1,0 +1,100 @@
+timestamp,round,vertex_name,current_parallelism,target_parallelism,action,approved,executed,in_rate,out_rate,busy_ratio,true_processing_rate,selectivity,reason
+2026-03-29T16:02:39.339265,2,Source: RocketMQ-Source -> Watermark-Assigner,6,5,SCALE_DOWN,False,False,0.0,3884.35,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:02:39.339265,2,Hardware-Filter,2,4,SCALE_UP,False,False,3834.51,3834.58,1.0,3834.51,1.0,in=5826.5 per_inst=1917.3 raw_p=4 busy=1.000
+2026-03-29T16:02:39.339265,2,Signal-Extraction,2,4,SCALE_UP,False,False,3210.68,3210.68,1.0,3210.68,1.0,in=5826.6 per_inst=1605.3 raw_p=4 busy=1.000
+2026-03-29T16:02:39.339265,2,Feature-Extraction,4,2,SCALE_DOWN,False,False,3210.68,3210.68,0.0329,64213.68,1.0,Idle+underloaded: per_inst=16053.4 needed=2 -> SCALE_DOWN
+2026-03-29T16:02:39.339265,2,Grid-Aggregation,4,1,SCALE_DOWN,False,False,3197.35,134.85,0.1292,24745.85,0.0422,in=5826.6 per_inst=6186.5 raw_p=1 busy=0.129
+2026-03-29T16:02:39.339265,2,Sink: EventFeature-Sink,2,1,SCALE_DOWN,False,False,3198.54,0.0,0.1983,16128.47,0.0,in=5826.6 per_inst=8064.2 raw_p=1 busy=0.198
+2026-03-29T16:02:39.339265,2,Sink: GridSummary-Sink,2,1,SCALE_DOWN,False,False,134.85,0.0,0.0,2697.02,0.0,Idle+underloaded: per_inst=1348.5 needed=1 -> SCALE_DOWN
+2026-03-29T16:02:54.399633,3,Source: RocketMQ-Source -> Watermark-Assigner,6,6,NO_CHANGE,False,False,0.0,5796.52,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:02:54.399633,3,Hardware-Filter,2,4,SCALE_UP,False,False,5804.74,5804.61,1.0,5804.74,1.0,in=10433.7 per_inst=2902.4 raw_p=4 busy=1.000
+2026-03-29T16:02:54.399633,3,Signal-Extraction,2,5,SCALE_UP,False,False,4184.38,4184.38,1.0,4184.38,1.0,in=10433.5 per_inst=2092.2 raw_p=5 busy=1.000
+2026-03-29T16:02:54.399633,3,Feature-Extraction,4,2,SCALE_DOWN,False,False,4176.49,4176.49,0.0588,71078.75,1.0,Idle+underloaded: per_inst=17769.7 needed=2 -> SCALE_DOWN
+2026-03-29T16:02:54.399633,3,Grid-Aggregation,4,2,SCALE_DOWN,False,False,4168.92,271.98,0.1388,30029.39,0.0652,in=10433.5 per_inst=7507.3 raw_p=2 busy=0.139
+2026-03-29T16:02:54.399633,3,Sink: EventFeature-Sink,2,2,NO_CHANGE,False,False,4172.24,0.0,0.2446,17060.63,0.0,in=10433.5 per_inst=8530.3 raw_p=2 busy=0.245
+2026-03-29T16:02:54.399633,3,Sink: GridSummary-Sink,2,1,SCALE_DOWN,False,False,271.98,0.0,0.0,5439.69,0.0,Idle+underloaded: per_inst=2719.8 needed=1 -> SCALE_DOWN
+2026-03-29T16:03:36.158498,4,Source: RocketMQ-Source -> Watermark-Assigner,6,5,SCALE_DOWN,True,True,0.0,2869.9,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:03:36.158498,4,Hardware-Filter,2,2,NO_CHANGE,False,True,2869.3,2869.37,0.6336,4528.56,1.0,in=4304.8 per_inst=2264.3 raw_p=2 busy=0.634
+2026-03-29T16:03:36.158498,4,Signal-Extraction,2,2,NO_CHANGE,False,True,1864.08,1864.08,0.3979,4685.36,1.0,in=4304.9 per_inst=2342.7 raw_p=2 busy=0.398
+2026-03-29T16:03:36.158498,4,Feature-Extraction,4,2,SCALE_DOWN,True,True,1863.41,1863.41,0.0123,37268.3,1.0,Idle+underloaded: per_inst=9317.1 needed=2 -> SCALE_DOWN
+2026-03-29T16:03:36.158498,4,Grid-Aggregation,4,2,SCALE_DOWN,True,True,1877.29,152.74,0.0375,37545.89,0.0814,Idle+underloaded: per_inst=9386.5 needed=2 -> SCALE_DOWN
+2026-03-29T16:03:36.158498,4,Sink: EventFeature-Sink,2,1,SCALE_DOWN,True,True,1877.1,0.0,0.0644,29155.23,0.0,Idle+underloaded: per_inst=14577.6 needed=1 -> SCALE_DOWN
+2026-03-29T16:03:36.158498,4,Sink: GridSummary-Sink,2,1,SCALE_DOWN,True,True,152.74,0.0,0.0,3054.78,0.0,Idle+underloaded: per_inst=1527.4 needed=1 -> SCALE_DOWN
+2026-03-29T16:04:51.366390,9,Source: RocketMQ-Source -> Watermark-Assigner,5,5,NO_CHANGE,False,False,0.0,6581.79,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:04:51.366390,9,Hardware-Filter,2,4,SCALE_UP,False,False,6580.0,6579.93,1.0,6580.0,1.0,in=11847.2 per_inst=3290.0 raw_p=4 busy=1.000
+2026-03-29T16:04:51.366390,9,Signal-Extraction,2,4,SCALE_UP,False,False,4560.45,4560.45,0.7563,6030.14,1.0,in=11847.1 per_inst=3015.1 raw_p=4 busy=0.756
+2026-03-29T16:04:51.366390,9,Feature-Extraction,2,1,SCALE_DOWN,False,False,4562.05,4562.05,0.048,91240.91,1.0,Idle+underloaded: per_inst=45620.5 needed=1 -> SCALE_DOWN
+2026-03-29T16:04:51.366390,9,Grid-Aggregation,2,1,SCALE_DOWN,False,False,4542.7,279.82,0.0539,84326.96,0.0616,Idle+underloaded: per_inst=42163.5 needed=1 -> SCALE_DOWN
+2026-03-29T16:04:51.366390,9,Sink: EventFeature-Sink,1,2,SCALE_UP,False,False,4557.46,0.0,0.5354,8511.54,0.0,in=11847.1 per_inst=8511.5 raw_p=2 busy=0.535
+2026-03-29T16:04:51.366390,9,Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,279.82,0.0,0.0,5596.38,0.0,"Idle (busy=0.000), capacity OK"
+2026-03-29T16:05:06.436475,10,Source: RocketMQ-Source -> Watermark-Assigner,5,4,SCALE_DOWN,False,False,0.0,3111.08,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:05:06.436475,10,Hardware-Filter,2,2,NO_CHANGE,False,False,3105.58,3105.58,0.5301,5858.71,1.0,in=4480.0 per_inst=2929.4 raw_p=2 busy=0.530
+2026-03-29T16:05:06.436475,10,Signal-Extraction,2,2,NO_CHANGE,False,False,2115.54,2115.54,0.3545,5967.1,1.0,in=4480.0 per_inst=2983.5 raw_p=2 busy=0.355
+2026-03-29T16:05:06.436475,10,Feature-Extraction,2,1,SCALE_DOWN,False,False,2117.07,2117.07,0.0345,42341.34,1.0,Idle+underloaded: per_inst=21170.7 needed=1 -> SCALE_DOWN
+2026-03-29T16:05:06.436475,10,Grid-Aggregation,2,1,SCALE_DOWN,False,False,2145.44,139.98,0.0223,42908.7,0.0652,Idle+underloaded: per_inst=21454.4 needed=1 -> SCALE_DOWN
+2026-03-29T16:05:06.436475,10,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,False,1992.59,0.0,0.3189,6248.8,0.0,in=4480.0 per_inst=6248.8 raw_p=1 busy=0.319
+2026-03-29T16:05:06.436475,10,Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,139.98,0.0,0.0,2799.69,0.0,"Idle (busy=0.000), capacity OK"
+2026-03-29T16:05:37.102864,11,Source: RocketMQ-Source -> Watermark-Assigner,5,5,NO_CHANGE,False,True,0.0,6748.78,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:05:37.102864,11,Hardware-Filter,2,4,SCALE_UP,False,True,6753.5,6753.57,1.0,6753.5,1.0,in=12147.8 per_inst=3376.7 raw_p=4 busy=1.000
+2026-03-29T16:05:37.102864,11,Signal-Extraction,2,4,SCALE_UP,False,True,4750.88,4750.88,0.7341,6471.69,1.0,in=12147.9 per_inst=3235.8 raw_p=4 busy=0.734
+2026-03-29T16:05:37.102864,11,Feature-Extraction,2,1,SCALE_DOWN,True,True,4748.95,4748.95,0.0506,93771.65,1.0,Idle+underloaded: per_inst=46885.8 needed=1 -> SCALE_DOWN
+2026-03-29T16:05:37.102864,11,Grid-Aggregation,2,1,SCALE_DOWN,True,True,4740.71,286.52,0.0469,94814.18,0.0604,Idle+underloaded: per_inst=47407.1 needed=1 -> SCALE_DOWN
+2026-03-29T16:05:37.102864,11,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,True,4879.35,0.0,0.2462,19815.38,0.0,in=12147.9 per_inst=19815.4 raw_p=1 busy=0.246
+2026-03-29T16:05:37.102864,11,Sink: GridSummary-Sink,1,1,NO_CHANGE,False,True,286.52,0.0,0.0,5730.32,0.0,"Idle (busy=0.000), capacity OK"
+2026-03-29T16:06:52.267181,16,Source: RocketMQ-Source -> Watermark-Assigner,5,9,SCALE_UP,False,False,0.0,12148.0,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:06:52.267181,16,Hardware-Filter,2,7,SCALE_UP,False,False,12133.25,12133.25,1.0,12133.25,1.0,in=39359.5 per_inst=6066.6 raw_p=7 busy=1.000
+2026-03-29T16:06:52.267181,16,Signal-Extraction,2,10,SCALE_UP,False,False,1819.28,1819.28,0.3238,5618.96,1.0,in=39359.5 per_inst=2809.5 raw_p=15 busy=0.324
+2026-03-29T16:06:52.267181,16,Feature-Extraction -> Sink: EventFeature-Sink,1,2,SCALE_UP,False,False,1816.76,0.0,0.0529,34354.27,0.0,Idle but future load high: per_inst=34354.3 needed=2 -> SCALE_UP
+2026-03-29T16:06:52.267181,16,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,1821.61,0.0,0.007,36432.1,0.0,"No upstream data, set min_p=1"
+2026-03-29T16:07:07.322437,17,Source: RocketMQ-Source -> Watermark-Assigner,5,5,NO_CHANGE,False,False,0.0,6313.17,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:07:07.322437,17,Hardware-Filter,2,3,SCALE_UP,False,False,6279.63,6279.63,0.6342,9901.46,1.0,in=11363.7 per_inst=4950.7 raw_p=3 busy=0.634
+2026-03-29T16:07:07.322437,17,Signal-Extraction,2,4,SCALE_UP,False,False,1006.49,1006.49,0.1743,5775.53,1.0,in=11363.7 per_inst=2887.8 raw_p=4 busy=0.174
+2026-03-29T16:07:07.322437,17,Feature-Extraction -> Sink: EventFeature-Sink,1,1,NO_CHANGE,False,False,1008.35,0.0,0.0146,20167.03,0.0,"Idle (busy=0.015), capacity OK"
+2026-03-29T16:07:07.322437,17,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,999.52,0.0,0.0124,19990.37,0.0,"No upstream data, set min_p=1"
+2026-03-29T16:07:39.683822,18,Source: RocketMQ-Source -> Watermark-Assigner,5,9,SCALE_UP,False,True,0.0,11794.43,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:07:39.683822,18,Hardware-Filter,2,7,SCALE_UP,False,True,11807.86,11807.86,1.0,11807.86,1.0,in=38214.0 per_inst=5903.9 raw_p=7 busy=1.000
+2026-03-29T16:07:39.683822,18,Signal-Extraction,2,10,SCALE_UP,False,True,1784.82,1784.82,0.2975,6000.0,1.0,in=38214.0 per_inst=3000.0 raw_p=13 busy=0.297
+2026-03-29T16:07:39.683822,18,Feature-Extraction -> Sink: EventFeature-Sink,1,2,SCALE_UP,True,True,1781.56,0.0,0.0469,35631.24,0.0,Idle but future load high: per_inst=35631.2 needed=2 -> SCALE_UP
+2026-03-29T16:07:39.683822,18,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,True,1784.42,0.0,0.0053,35688.4,0.0,"No upstream data, set min_p=1"
+2026-03-29T16:08:54.859345,23,Source: RocketMQ-Source -> Watermark-Assigner,5,7,SCALE_UP,False,False,0.0,8589.92,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:08:54.859345,23,Hardware-Filter,2,6,SCALE_UP,False,False,8616.64,8616.71,1.0,8616.64,1.0,in=21646.6 per_inst=4308.3 raw_p=6 busy=1.000
+2026-03-29T16:08:54.859345,23,Signal-Extraction,2,10,SCALE_UP,False,False,1248.85,1248.85,0.4281,2917.09,1.0,in=21646.8 per_inst=1458.5 raw_p=15 busy=0.428
+2026-03-29T16:08:54.859345,23,Feature-Extraction,2,2,NO_CHANGE,False,False,1248.12,1248.12,0.0353,24962.32,1.0,"Idle (busy=0.035), capacity OK"
+2026-03-29T16:08:54.859345,23,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,1240.74,0.0,0.0315,24814.76,0.0,"Idle (busy=0.032), capacity OK"
+2026-03-29T16:08:54.859345,23,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,False,1249.58,0.0,0.0564,22169.81,0.0,"Idle (busy=0.056), capacity OK"
+2026-03-29T16:09:09.970866,24,Source: RocketMQ-Source -> Watermark-Assigner,5,4,SCALE_DOWN,False,False,0.0,2872.55,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:09:09.970866,24,Hardware-Filter,2,2,NO_CHANGE,False,False,2858.25,2858.25,0.557,5131.55,1.0,in=4136.5 per_inst=2565.8 raw_p=2 busy=0.557
+2026-03-29T16:09:09.970866,24,Signal-Extraction,2,3,SCALE_UP,False,False,441.15,441.15,0.1433,3078.56,1.0,in=4136.5 per_inst=1539.3 raw_p=3 busy=0.143
+2026-03-29T16:09:09.970866,24,Feature-Extraction,2,1,SCALE_DOWN,False,False,443.93,443.93,0.0168,8878.55,1.0,Idle+underloaded: per_inst=4439.3 needed=1 -> SCALE_DOWN
+2026-03-29T16:09:09.970866,24,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,445.38,0.0,0.0191,8907.69,0.0,"Idle (busy=0.019), capacity OK"
+2026-03-29T16:09:09.970866,24,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,False,445.58,0.0,0.0232,8911.66,0.0,"Idle (busy=0.023), capacity OK"
+2026-03-29T16:09:25.013876,25,Source: RocketMQ-Source -> Watermark-Assigner,5,6,SCALE_UP,False,False,0.0,7147.01,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:09:25.013876,25,Hardware-Filter,2,5,SCALE_UP,False,False,7149.2,7149.13,1.0,7149.2,1.0,in=15437.5 per_inst=3574.6 raw_p=5 busy=1.000
+2026-03-29T16:09:25.013876,25,Signal-Extraction,2,10,SCALE_UP,False,False,1082.78,1082.78,0.4099,2641.89,1.0,in=15437.4 per_inst=1320.9 raw_p=12 busy=0.410
+2026-03-29T16:09:25.013876,25,Feature-Extraction,2,2,NO_CHANGE,False,False,1082.32,1082.32,0.0339,21646.37,1.0,"Idle (busy=0.034), capacity OK"
+2026-03-29T16:09:25.013876,25,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,1081.66,0.0,0.0301,21633.13,0.0,"Idle (busy=0.030), capacity OK"
+2026-03-29T16:09:25.013876,25,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,False,1083.11,0.0,0.0452,21662.26,0.0,"Idle (busy=0.045), capacity OK"
+2026-03-29T16:09:40.073687,26,Source: RocketMQ-Source -> Watermark-Assigner,5,5,NO_CHANGE,False,False,0.0,4392.33,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:09:40.073687,26,Hardware-Filter,2,3,SCALE_UP,False,False,4392.33,4392.39,0.6553,6702.94,1.0,in=7906.2 per_inst=3351.5 raw_p=3 busy=0.655
+2026-03-29T16:09:40.073687,26,Signal-Extraction,2,6,SCALE_UP,False,False,631.49,631.49,0.2139,2951.85,1.0,in=7906.3 per_inst=1475.9 raw_p=6 busy=0.214
+2026-03-29T16:09:40.073687,26,Feature-Extraction,2,2,NO_CHANGE,False,False,630.96,630.96,0.0247,12619.19,1.0,"Idle (busy=0.025), capacity OK"
+2026-03-29T16:09:40.073687,26,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,633.02,0.0,0.0263,12660.39,0.0,"Idle (busy=0.026), capacity OK"
+2026-03-29T16:09:40.073687,26,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,False,629.03,0.0,0.0251,12580.64,0.0,"Idle (busy=0.025), capacity OK"
+2026-03-29T16:09:55.099765,27,Source: RocketMQ-Source -> Watermark-Assigner,5,5,NO_CHANGE,False,False,0.0,6002.53,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:09:55.099765,27,Hardware-Filter,2,4,SCALE_UP,False,False,6026.72,6026.65,0.9199,6551.29,1.0,in=10804.6 per_inst=3275.6 raw_p=4 busy=0.920
+2026-03-29T16:09:55.099765,27,Signal-Extraction,2,8,SCALE_UP,False,False,878.86,878.86,0.2923,3006.59,1.0,in=10804.4 per_inst=1503.3 raw_p=8 busy=0.292
+2026-03-29T16:09:55.099765,27,Feature-Extraction,2,2,NO_CHANGE,False,False,880.99,880.99,0.0218,17619.78,1.0,"Idle (busy=0.022), capacity OK"
+2026-03-29T16:09:55.099765,27,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,885.51,0.0,0.0274,17710.16,0.0,"Idle (busy=0.027), capacity OK"
+2026-03-29T16:09:55.099765,27,Sink: EventFeature-Sink,1,5,SCALE_UP,False,False,885.31,0.0,0.3653,2423.24,0.0,in=10804.4 per_inst=2423.2 raw_p=5 busy=0.365
+2026-03-29T16:10:10.130055,28,Source: RocketMQ-Source -> Watermark-Assigner,5,5,NO_CHANGE,False,False,0.0,0.0,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:10:10.130055,28,Hardware-Filter,2,1,SCALE_DOWN,False,False,0.0,0.0,0.0,0.0,1.0,"No upstream data, set min_p=1"
+2026-03-29T16:10:10.130055,28,Signal-Extraction,2,1,SCALE_DOWN,False,False,0.0,0.0,0.0,0.0,1.0,"No upstream data, set min_p=1"
+2026-03-29T16:10:10.130055,28,Feature-Extraction,2,2,NO_CHANGE,False,False,16.9,16.9,0.0,338.02,1.0,"No upstream data, set min_p=1"
+2026-03-29T16:10:10.130055,28,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,False,16.9,0.0,0.0,338.02,0.0,"No upstream data, set min_p=1"
+2026-03-29T16:10:10.130055,28,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,False,16.9,0.0,0.0,338.02,0.0,"No upstream data, set min_p=1"
+2026-03-29T16:10:38.732012,29,Source: RocketMQ-Source -> Watermark-Assigner,5,4,SCALE_DOWN,True,True,0.0,1603.16,0.0,0.0,1.0,Source busy=0.000
+2026-03-29T16:10:38.732012,29,Hardware-Filter,2,2,NO_CHANGE,False,True,1565.57,1565.57,0.4254,3680.66,1.0,in=2308.5 per_inst=1840.3 raw_p=2 busy=0.425
+2026-03-29T16:10:38.732012,29,Signal-Extraction,2,1,SCALE_DOWN,False,True,1204.05,1204.05,0.1365,8823.3,1.0,in=2308.5 per_inst=4411.7 raw_p=1 busy=0.136
+2026-03-29T16:10:38.732012,29,Feature-Extraction,2,1,SCALE_DOWN,True,True,1185.29,1185.29,0.0,23705.78,1.0,Idle+underloaded: per_inst=11852.9 needed=1 -> SCALE_DOWN
+2026-03-29T16:10:38.732012,29,Grid-Aggregation -> Sink: GridSummary-Sink,1,1,NO_CHANGE,False,True,1181.16,0.0,0.0,23623.3,0.0,"Idle (busy=0.000), capacity OK"
+2026-03-29T16:10:38.732012,29,Sink: EventFeature-Sink,1,1,NO_CHANGE,False,True,1175.91,0.0,0.0031,23518.2,0.0,"Idle (busy=0.003), capacity OK"

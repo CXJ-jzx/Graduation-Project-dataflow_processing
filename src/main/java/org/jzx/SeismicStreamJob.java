@@ -130,6 +130,8 @@ public class SeismicStreamJob {
         env.getCheckpointConfig().setCheckpointTimeout(60000);
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 
+        env.disableOperatorChaining();
+
         // 网络 buffer 超时
         env.setBufferTimeout(bufferTimeout);
 

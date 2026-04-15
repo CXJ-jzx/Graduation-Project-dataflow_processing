@@ -1,0 +1,6 @@
+parallelism,total_output_rate,per_instance_rate,std_dev,min_rate,max_rate,valid_samples,consumer_group,timestamp
+1,3131.44,3131.44,88.90,3029.12,3268.38,28,seismic-flink-consumer-group_src_cal_968419a4,2026-03-31 16:06:29
+2,3426.11,1713.06,50.79,3333.42,3517.65,28,seismic-flink-consumer-group_src_cal_970336b1,2026-03-31 16:09:59
+4,8125.40,2031.35,318.08,7562.47,8541.62,28,seismic-flink-consumer-group_src_cal_1717239d,2026-03-31 16:13:22
+6,5141.44,856.91,56.89,5069.87,5229.30,28,seismic-flink-consumer-group_src_cal_1ec8d867,2026-03-31 16:16:49
+8,7846.23,980.78,138.34,7690.43,8107.20,28,seismic-flink-consumer-group_src_cal_266d6e47,2026-03-31 16:20:20

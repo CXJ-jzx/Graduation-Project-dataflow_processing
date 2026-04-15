@@ -1,0 +1,125 @@
+# =========================
+# DS2 Configuration File
+# =========================
+# P4 稳定性修复版
+
+flink:
+  # JobManager REST API 地址
+  rest_url: "http://192.168.56.151:8081"
+
+  # Flink 作业名称（必须与 SeismicStreamJob.JOB_NAME 完全一致）
+  job_name: "Seismic-Stream-Job"
+
+  # Savepoint 目录
+  savepoint_dir: "hdfs://node01:9000/flink/savepoints"
+
+
+# =========================
+# DS2 Core Parameters
+# =========================
+ds2:
+  # 决策周期（秒）
+  policy_interval: 15
+
+  # 扩缩容后的冷却/预热时间（秒）
+  # 也可以用 cooldown_seconds 别名，效果相同
+  # Flink 作业重启恢复需要 ~120s，再留 60s 采稳态数据
+  warm_up_time: 180
+
+  # 连续 N 次决策方向一致才执行
+  # 4轮 × 15s = 60s 的稳态数据，足以消除采样抖动
+  activation_window: 4
+
+  # 目标处理能力冗余比例（安全余量）
+  target_rate_ratio: 1.6
+
+  # 最小忙碌比（防止除 0）
+  min_busy_ratio: 0.05
+
+  # idle 判定阈值：busy 低于此值视为 idle，走轻量级决策路径
+  idle_busy_threshold: 0.10
+
+  # 并行度范围（6核集群，绝对上限 8）
+  max_parallelism: 8
+  min_parallelism: 1
+
+  # 并行度变化阈值（避免频繁 +1/-1）
+  change_threshold: 0
+
+  # 重启作业所需 JAR 包名称关键字
+  target_jar_name: "flink-rocketmq-demo-1.0-SNAPSHOT"
+
+  # ---------------------------------------------------------
+  # P4 新增：稳定性参数
+  # ---------------------------------------------------------
+
+  # 单次扩缩幅度限制：最多翻倍/减半
+  # 防止 filter 3→8 这种暴涨，限制为 3→6
+  max_scale_factor: 2.0
+
+  # 重启恢复期检测阈值
+  # busy >= 此值 且 吞吐 < recovery_throughput_min 时判定为恢复过渡期
+  recovery_busy_threshold: 0.95
+
+  # 恢复期吞吐判定门槛（records/s）
+  # 正常运行时 busy=0.95 的算子吞吐应远高于此值
+  recovery_throughput_min: 100.0
+
+  # 显著性检查：仅 busy 低于此值的算子需要变更时，延迟执行
+  # 避免只因 idle 算子微调就触发昂贵的 savepoint+重启
+  min_significant_busy: 0.30
+
+  # 启动后初始保护期（秒）
+  # 控制器启动后等待此时间再做首次伸缩决策
+  # 实际由 warm_up_time 机制实现（启动时 _last_scaling_time = now）
+  initial_grace_period: 60
+
+
+# =========================
+# 算子名称映射
+# =========================
+# 将 Flink DAG 中的算子名（vertex name）映射到命令行参数名
+# Flink REST API 返回的 vertex name 可能包含完整的链路描述
+# 这里配置的是"包含匹配"关键字
+operator_mapping:
+  source:
+    keyword: "RocketMQ-Source"
+    arg_name: "p-source"
+    default_parallelism: 2
+
+  filter:
+    keyword: "Hardware-Filter"
+    arg_name: "p-filter"
+    default_parallelism: 2
+
+  signal:
+    keyword: "Signal-Extraction"
+    arg_name: "p-signal"
+    default_parallelism: 2
+
+  feature:
+    keyword: "Feature-Extraction"
+    arg_name: "p-feature"
+    default_parallelism: 2
+
+  grid:
+    keyword: "Grid-Aggregation"
+    arg_name: "p-grid"
+    default_parallelism: 2
+
+  sink_event:
+    keyword: "EventFeature-Sink"
+    arg_name: "p-sink"
+    default_parallelism: 1
+
+  sink_grid:
+    keyword: "GridSummary-Sink"
+    arg_name: "p-sink"
+    default_parallelism: 1
+
+
+# =========================
+# Logging
+# =========================
+logging:
+  level: "INFO"

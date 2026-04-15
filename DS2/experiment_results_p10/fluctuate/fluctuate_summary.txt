@@ -1,0 +1,96 @@
+============================================================
+  Fluctuate Test - Summary (P10)
+============================================================
+  Time: 2026-04-02T18:19:31.968222
+  Scenario: Low P(2), 6000 r/s x 10min -> 2000 r/s x 10min, verify scale-up then scale-down
+
+--- Fixed Parallelism ---
+  Config: {'p-source': 4, 'p-filter': 4, 'p-signal': 4, 'p-feature': 4, 'p-grid': 4, 'p-sink': 2}
+  Avg throughput : 7721.4 r/s
+  Max throughput : 14432.0 r/s
+  Avg busy       : 0.246
+  Avg slots      : 4.0
+  Slot range     : [4, 4]
+  Resource cost  : 120.0 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [4, 4]
+    Grid-Aggregation              : [4, 4]
+    Hardware-Filter               : [4, 4]
+    Signal-Extraction             : [4, 4]
+    Sink                          : [2, 2]
+    Source                        : [4, 4]
+    Watermark-Assigner            : [4, 4]
+
+--- DS2 Auto-Scaling ---
+  Config: {'p-source': 2, 'p-filter': 2, 'p-signal': 2, 'p-feature': 2, 'p-grid': 2, 'p-sink': 1}
+  Avg throughput : 8113.9 r/s
+  Max throughput : 16520.2 r/s
+  Avg busy       : 0.283
+  Avg slots      : 3.3
+  Slot range     : [2, 4]
+  Resource cost  : 70.6 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [2, 4] <- dynamic
+    Grid-Aggregation              : [2, 4] <- dynamic
+    Hardware-Filter               : [2, 3] <- dynamic
+    Signal-Extraction             : [2, 3] <- dynamic
+    Sink                          : [1, 4] <- dynamic
+    Source                        : [2, 4] <- dynamic
+    Watermark-Assigner            : [2, 4] <- dynamic
+
+--- Comparison ---
+  Throughput diff : +5.1%
+  Slot diff       : -17.3%
+  Fixed efficiency: 1930.3 r/s/slot
+  DS2 efficiency  : 2452.4 r/s/slot
+  Efficiency gain : +27.0%
+  Resource compare: Fixed=120.0 vs DS2=70.6 slot*min
+  Resource saved: 49.4 slot*min (41.2%)
+
+--- Fluctuate Detail ---
+
+  Phase 1: 6000 r/s x 600s
+    Fixed:
+      Avg throughput : 11671.9 r/s
+      Avg slots      : 4.0
+      Slot range     : [4, 4]
+      Resource cost  : 40.0 slot*min
+      Efficiency     : 2918.0 r/s/slot
+    DS2:
+      Avg throughput : 12007.3 r/s
+      Avg slots      : 3.5
+      Slot range     : [2, 4]
+      Resource cost  : 34.3 slot*min
+      Efficiency     : 3439.0 r/s/slot
+
+  Phase 2: 2000 r/s x 600s
+    Fixed:
+      Avg throughput : 4071.3 r/s
+      Avg slots      : 4.0
+      Slot range     : [4, 4]
+      Resource cost  : 40.0 slot*min
+      Efficiency     : 1017.8 r/s/slot
+    DS2:
+      Avg throughput : 4392.3 r/s
+      Avg slots      : 3.2
+      Slot range     : [3, 4]
+      Resource cost  : 31.2 slot*min
+      Efficiency     : 1382.1 r/s/slot
+
+  DS2 Parallelism Changes:
+    Slot range     : [2, 4]
+    Dynamic operators:
+      Feature-Extraction: [2, 4]
+      Grid-Aggregation: [2, 4]
+      Hardware-Filter: [2, 3]
+      Signal-Extraction: [2, 3]
+      Sink: [1, 4]
+      Source: [2, 4]
+      Watermark-Assigner: [2, 4]
+
+  Low-Load Phase Resource Saving:
+    Fixed : 40.0 slot*min
+    DS2   : 31.2 slot*min
+    DS2 saved 8.8 slot*min (21.9%)
+
+============================================================

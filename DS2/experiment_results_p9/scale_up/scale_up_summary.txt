@@ -1,0 +1,54 @@
+============================================================
+  Scale-Up Test - Summary (P9)
+============================================================
+  Time: 2026-04-02T15:39:20.190337
+  Scenario: Low P(2) + 6000 r/s x 15min, verify DS2 scale-up
+
+--- Fixed Parallelism ---
+  Config: {'p-source': 4, 'p-filter': 4, 'p-signal': 4, 'p-feature': 4, 'p-grid': 4, 'p-sink': 2}
+  Avg throughput : 10545.7 r/s
+  Max throughput : 13795.0 r/s
+  Avg busy       : 0.544
+  Avg slots      : 4.0
+  Slot range     : [4, 4]
+  Resource cost  : 100.0 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [4, 4]
+    Grid-Aggregation              : [4, 4]
+    Hardware-Filter               : [4, 4]
+    Signal-Extraction             : [4, 4]
+    Sink                          : [2, 2]
+    Source                        : [4, 4]
+    Watermark-Assigner            : [4, 4]
+
+--- DS2 Auto-Scaling ---
+  Config: {'p-source': 2, 'p-filter': 2, 'p-signal': 2, 'p-feature': 2, 'p-grid': 2, 'p-sink': 1}
+  Avg throughput : 11673.2 r/s
+  Max throughput : 21641.7 r/s
+  Avg busy       : 0.432
+  Avg slots      : 4.6
+  Slot range     : [2, 5]
+  Resource cost  : 113.4 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [2, 4] <- dynamic
+    Grid-Aggregation              : [2, 4] <- dynamic
+    Hardware-Filter               : [2, 4] <- dynamic
+    Signal-Extraction             : [2, 4] <- dynamic
+    Sink                          : [1, 3] <- dynamic
+    Source                        : [2, 5] <- dynamic
+    Watermark-Assigner            : [2, 5] <- dynamic
+
+--- Comparison ---
+  Throughput diff : +10.7%
+  Slot diff       : +14.2%
+  Fixed efficiency: 2636.4 r/s/slot
+  DS2 efficiency  : 2555.9 r/s/slot
+  Efficiency gain : -3.1%
+  Resource compare: Fixed=100.0 vs DS2=113.4 slot*min
+  Resource extra: 13.4 slot*min (13.4%)
+
+--- Scale-Up Detail ---
+  Fixed reach 80% target: not reached
+  DS2 reach 80% target: not reached
+
+============================================================

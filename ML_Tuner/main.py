@@ -61,6 +61,11 @@ class MLTunerLoop:
         self.failure_streak = 0
         self._lhs_cache = None
 
+        # ★ 新增：连续跳过计数器
+        self._consecutive_skips = 0
+        self._max_consecutive_skips = int(self._cfg_first(
+            [("safety", "max_consecutive_skips")], 3))
+
         self.warm_up_rounds = int(self._cfg_first(
             [("scheduler", "warm_up_rounds"), ("surrogate", "warm_up_observations")], 8))
         self.max_rounds = int(self._cfg_first(
@@ -393,7 +398,6 @@ class MLTunerLoop:
         if self.stop_requested:
             return False
 
-        # 额外诊断：Producer 健康
         if hasattr(self.executor, "is_producer_healthy"):
             p_ok = self.executor.is_producer_healthy()
             logger.error("[Round %d] 数据流未就绪, producer_healthy=%s", round_id, p_ok)
@@ -515,13 +519,33 @@ class MLTunerLoop:
         return self._execute_round(round_id, theta, phase="warmup")
 
     def _run_optimize_round(self, round_id: int) -> bool:
+        """
+        ★ 修改：增加连续跳过兜底逻辑
+        """
         theta, info = self._suggest_theta()
         source = info.get("source", "")
 
         if theta is None or source == "et_rejected":
-            logger.info("[Round %d] BO 无改善建议，跳过本轮（不重启作业）", round_id)
-            return True
+            self._consecutive_skips += 1
+            logger.info("[Round %d] BO 无改善建议 (连续跳过 %d/%d)",
+                        round_id, self._consecutive_skips, self._max_consecutive_skips)
 
+            # ★ 连续跳过超限：强制随机探索
+            if self._consecutive_skips >= self._max_consecutive_skips:
+                logger.warning("[Round %d] 连续跳过 %d 轮，强制随机探索！",
+                               round_id, self._consecutive_skips)
+                self._consecutive_skips = 0
+
+                theta = self.space.sample_random_single()
+                if theta is None:
+                    theta = self._fallback_theta()
+                logger.info("[Round %d] 强制随机参数: %s", round_id, theta)
+                return self._execute_round(round_id, theta, phase="forced_explore")
+
+            return True  # 跳过本轮
+
+        # 正常建议，重置跳过计数
+        self._consecutive_skips = 0
         phase = "optimize" if source != "fallback" else "conservative"
         return self._execute_round(round_id, theta, phase=phase)
 

@@ -1,0 +1,54 @@
+============================================================
+  扩容测试 - Summary
+============================================================
+  Time: 2026-04-02T10:00:34.497336
+  Scenario: 低并行度(P=2)直接承受高负载(10000r/s), 验证DS2扩容速度
+
+--- Fixed Parallelism ---
+  Config: {'p-source': 4, 'p-filter': 4, 'p-signal': 4, 'p-feature': 4, 'p-grid': 4, 'p-sink': 2}
+  Avg throughput : 13880.2 r/s
+  Max throughput : 29804.3 r/s
+  Avg busy       : 0.298
+  Avg slots      : 4.0
+  Slot range     : [4, 4]
+  Resource cost  : 59.7 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [4, 4]
+    Grid-Aggregation              : [4, 4]
+    Hardware-Filter               : [4, 4]
+    Signal-Extraction             : [4, 4]
+    Sink                          : [2, 2]
+    Source                        : [4, 4]
+    Watermark-Assigner            : [4, 4]
+
+--- DS2 Auto-Scaling ---
+  Config: {'p-source': 2, 'p-filter': 2, 'p-signal': 2, 'p-feature': 2, 'p-grid': 2, 'p-sink': 1}
+  Avg throughput : 9362.0 r/s
+  Max throughput : 19949.9 r/s
+  Avg busy       : 0.416
+  Avg slots      : 3.6
+  Slot range     : [2, 6]
+  Resource cost  : 51.2 slot*min
+  Operator parallelism:
+    Feature-Extraction            : [2, 3] <- dynamic
+    Grid-Aggregation              : [2, 3] <- dynamic
+    Hardware-Filter               : [2, 3] <- dynamic
+    Signal-Extraction             : [2, 4] <- dynamic
+    Sink                          : [1, 3] <- dynamic
+    Source                        : [2, 6] <- dynamic
+    Watermark-Assigner            : [2, 6] <- dynamic
+
+--- Comparison ---
+  Throughput diff : -32.6%
+  Slot diff       : -9.6%
+  Fixed efficiency: 3470.0 r/s/slot
+  DS2 efficiency  : 2587.9 r/s/slot
+  Efficiency gain : -25.4%
+  Resource compare: Fixed=59.7 vs DS2=51.2 slot*min
+  Resource saved: 8.4 slot*min (14.1%)
+
+--- Scale-Up Detail ---
+  Fixed reach 80% target: not reached
+  DS2 reach 80% target: not reached
+
+============================================================

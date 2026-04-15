@@ -1,0 +1,52 @@
+# ds2_calibration_config.yaml
+
+flink:
+  rest_url: "http://192.168.56.151:8081"
+  flink_home: "/opt/app/flink-1.17.2"
+  jar_path: "/opt/flink_jobs/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
+  main_class: "org.jzx.SeismicStreamJob"
+  job_name: "SeismicStreamJob"
+
+ssh:
+  host: "192.168.56.151"
+  port: 22
+  user: "root"
+  password: "123456"       # 填你的密码
+
+rocketmq:
+  home: "/usr/local/rocketmq"
+  cluster: "RaftCluster"
+  consumer_group_prefix: "seismic-flink-consumer-group"
+  namesrv_addr: "192.168.56.151:9876"
+  deregister_wait_seconds: 15
+  cleanup_old_consumer_group: true
+
+
+producer:
+  main_class: "org.jzx.producer.HighThroughputSeismicProducer"
+  local_jar: "E:/Desktop/bs_code/flink-rocketmq-demo/target/flink-rocketmq-demo-1.0-SNAPSHOT.jar"
+  work_dir: "E:/Desktop/bs_code/flink-rocketmq-demo"
+
+
+calibration:
+  # 默认并行度（固定不变）
+  default_parallelism:
+    p-source: 6
+    p-filter: 4
+    p-signal: 4
+    p-feature: 4
+    p-grid: 4
+    p-sink: 2
+
+  # 测试的速率档位 (records/s)
+  # rate_levels: [2000, 3000, 4000, 5000, 6000, 8000]
+  rate_levels: [6000, 8000]
+
+  # 每个档位的时间参数（秒）
+  warmup_seconds: 60         # 预热等待
+  observe_seconds: 120       # 稳态观测
+  observe_interval: 10       # 采集间隔
+  drain_seconds: 30          # 排空等待
+
+  # 输出目录
+  output_dir: "calibration_results"

@@ -1,0 +1,38 @@
+{
+  "run_id": "C2_run01_20260330_195426",
+  "exp_name": "C2",
+  "exp_config": {
+    "name": "静态高配对照",
+    "description": "与E2同负载同初始并行度，不启动DS2",
+    "ds2_enabled": false,
+    "duration_seconds": 600,
+    "warmup_before_ds2": 0,
+    "drain_seconds": 60,
+    "repeat": 1,
+    "parallelism": {
+      "p-source": 6,
+      "p-filter": 8,
+      "p-signal": 8,
+      "p-feature": 4,
+      "p-grid": 4,
+      "p-sink": 2
+    },
+    "load_profile": [
+      {
+        "name": "low_pressure",
+        "rate": 2000,
+        "duration": 600
+      }
+    ]
+  },
+  "start_time": "2026-03-30T19:54:26.796233",
+  "parallelism": {
+    "p-source": 6,
+    "p-filter": 8,
+    "p-signal": 8,
+    "p-feature": 4,
+    "p-grid": 4,
+    "p-sink": 2
+  },
+  "ds2_enabled": false
+}
