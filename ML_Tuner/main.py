@@ -661,3 +661,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+'''
+python main.py --config ml_tuner_config.yaml --rounds 30
+'''
